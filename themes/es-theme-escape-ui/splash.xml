@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<theme>
+  <formatVersion>7</formatVersion>
+  <!-- the boot / reload screen: our picture only, at a fixed path (ES draws it before the accent
+       variable exists; tool/gen.py copies the current colour's boot.png there). ES draws its loading bar at its own size whatever
+       the theme says (a thick grey slab with a thin line on it), so it is switched off. -->
+  <view name="splash">
+    <splash name="splash"><backgroundColor>000000</backgroundColor></splash>
+    <image name="background"><origin>0.5 0.5</origin><pos>0.5 0.5</pos><size>1 1</size><path>./gen/boot.png</path></image>
+    <image name="progressbar"><visible>false</visible></image>
+    <image name="progressbar:active"><visible>false</visible></image>
+    <text name="label"><visible>false</visible></text>
+  </view>
+</theme>

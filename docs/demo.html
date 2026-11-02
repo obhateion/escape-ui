@@ -1,0 +1,1238 @@
+<meta charset="utf-8">
+<title>escape/UI demo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@900&family=Silkscreen:wght@400;700&family=Archivo:wght@300;400;500&family=Noto+Sans+JP:wght@400&display=swap">
+<style>
+/* v31: the mock-up is now the Brick build itself — the theme's pictures are drawn by the same code as
+   theme/tool/gen.py (ported with Python's random, so every sticker lands where it does on the device),
+   and what ES draws (carousel, help, status, lists, menu) uses the sizes in theme.xml. */
+:root { color-scheme: dark; --page: #101010; --ink: #f2f2ee; --dim: #6e6e6b; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--page); color: var(--ink); font-family: "Archivo", Arial, sans-serif;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.top { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+.top h1 { margin: 0; font: 900 26px/1 "Doto", monospace; letter-spacing: .06em; }
+.top p { margin: 6px 0 0; font: 400 12px/1.5 "Archivo", sans-serif; color: #9a9a96; max-width: 66ch; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; font: 400 10px "Silkscreen", monospace; color: var(--dim); text-transform: uppercase; }
+.group { display: flex; gap: 8px; align-items: center; }
+.sw { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #444; cursor: pointer; padding: 0; position: relative; }
+.sw[aria-pressed="true"]::after { content: ""; position: absolute; inset: -5px; border: 1px solid var(--ink); border-radius: 50%; }
+.tab { font: 400 10px "Silkscreen", monospace; text-transform: uppercase; color: var(--ink); background: transparent; border: 1px solid #333; padding: 7px 9px; cursor: pointer; }
+.tab[aria-pressed="true"] { background: var(--ink); color: #000; border-color: var(--ink); }
+button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.frame { width: 100%; max-width: 1180px; flex: 1 1 auto; min-height: 260px; display: flex; align-items: center; justify-content: center; }
+.bezel { position: relative; background: #181818; border-radius: 22px; padding: 18px; box-shadow: 0 30px 80px #000a, inset 0 0 0 1px #262626; }
+.viewport { position: relative; overflow: hidden; background: #000; }
+.stage { position: absolute; left: 0; top: 0; width: 1024px; height: 768px; transform-origin: 0 0; overflow: hidden; background: #000; }
+.pad { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap; gap: 10px 26px; justify-content: center; }
+.pad .keys { display: flex; gap: 6px; }
+.pad button { font: 400 11px "Silkscreen", monospace; color: var(--ink); background: #191919; border: 1px solid #2e2e2e; min-width: 40px; height: 34px; cursor: pointer; }
+
+/* ---- inside the screen: 1024 × 768, positions from theme.xml ---- */
+.scr { position: absolute; inset: 0; }
+.scr[hidden], [hidden] { display: none !important; }
+.abs { position: absolute; left: 0; top: 0; }
+#fig, #loop { left: 430px; top: 96px; }
+#fig.light { animation: light 48s linear infinite; transform-origin: 280px 235px; }
+@keyframes light { 0% { transform: rotate(0) scale(1); } 25% { transform: rotate(90deg) scale(1.05); } 50% { transform: rotate(180deg) scale(1); } 75% { transform: rotate(270deg) scale(1.05); } 100% { transform: rotate(360deg) scale(1); } }
+/* chromatic aberration "always" = ca.glsl on the figure and the over image */
+.ca #fig, .ca #over { filter: url(#ca); }
+/* ES's carousel: 3 keys of 260 × 72 in 0.914 × 0.094 at (0.043, 0.82); the picked one 1.08×, the others at half */
+.key { position: absolute; top: 630px; width: 260px; height: 72px; opacity: .5; }
+.key.on { opacity: 1; transform: scale(1.08); }
+/* status: clock and battery text, Silkscreen 0.0208 (16 px), right-aligned ending at x = 980 */
+#status { position: absolute; right: 44px; top: 36px; height: 26px; display: flex; gap: 18px; align-items: center; font: 400 16px "Silkscreen", monospace; color: var(--ink); }
+/* help: Silkscreen 0.026 (20 px) at (0.043, 0.946), text dim, icons ink */
+#help { position: absolute; left: 44px; top: 726px; transform: translateY(-50%); display: flex; gap: 14px; align-items: center; font: 400 20px/1 "Silkscreen", monospace; color: var(--dim); white-space: nowrap; }
+#help span { display: inline-flex; align-items: center; gap: 4px; }
+.hb { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--ink); color: #000; font: 700 9px/1 "Silkscreen", monospace; font-style: normal; }
+.hb-start, .hb-select { width: 18px; height: 8px; border-radius: 2px; }
+.hb-dpad { background: none; border: 2px solid var(--ink); border-radius: 2px; width: 13px; height: 13px; transform: rotate(45deg) scale(.8); }
+/* game list: head image at (44, 84), textlist 0.44 × 0.64 at (0.043, 0.215), Archivo 0.0234, lineSpacing 1.9 */
+#head { left: 44px; top: 84px; }
+#rows { position: absolute; left: 44px; top: 165px; width: 451px; height: 492px; overflow: hidden; }
+.tl { height: 32.5px; line-height: 32.5px; padding: 0 22px; font: 400 18px "Archivo", sans-serif; color: #a9a9a5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl.on { color: #fff; background: linear-gradient(transparent 5px, #ffffff12 5px, #ffffff12 28px, transparent 28px); }
+#cover { left: 546px; top: 96px; }
+#md-name { position: absolute; left: 546px; top: 380px; width: 440px; height: 38px; font: 400 24px/38px "Archivo", sans-serif; color: var(--ink); white-space: nowrap; overflow: hidden; }
+.md-lbl { position: absolute; top: 430px; font: 400 12px/20px "Silkscreen", monospace; color: var(--dim); }
+.md-val { position: absolute; top: 452px; font: 400 16px/23px "Silkscreen", monospace; color: var(--ink); }
+#md-desc { position: absolute; left: 546px; top: 495px; width: 440px; height: 126px; overflow: hidden; font: 400 15px/21px "Archivo", sans-serif; color: #8f8f8b; white-space: pre-line; }
+/* ES's menu with the theme's 9-patch: panel 768 wide from y 116, Silkscreen title, Archivo rows */
+#dim { position: absolute; inset: 0; background: #000a; }
+#menu { position: absolute; left: 128px; top: 116px; width: 768px; background: #0b0b0bfa; border: 1px solid #ffffff22; }
+.mt { height: 61px; display: grid; place-items: center; font: 400 22px "Silkscreen", monospace; letter-spacing: .08em; border-bottom: 1px solid #1d1d1c; }
+.mg { padding: 4px 10px 2px; font: 400 12px/18px "Silkscreen", monospace; color: var(--dim); border-bottom: 1px solid #1d1d1c; }
+.mi { height: 25.6px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 10px; font: 500 18px "Archivo", sans-serif; color: #a9a9a5; border-bottom: 1px solid #1d1d1c; }
+.mi.on { background: #ffffff1a; color: #fff; }
+.mv { display: inline-flex; gap: 10px; align-items: center; }
+.mv i { font-style: normal; font-size: 14px; color: #a9a9a5; }
+.ma { font: 400 22px "Archivo", sans-serif; }
+.msw { width: 36px; height: 18px; border-radius: 9px; background: #d8d8d4; position: relative; }
+.msw::after { content: ""; position: absolute; right: 3px; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: #111; }
+.mf { padding: 18px 0 16px; text-align: center; font: 400 12px "Silkscreen", monospace; color: var(--dim); }
+.mb { padding: 12px 0; display: flex; justify-content: center; }
+.mb span { font: 500 18px "Archivo", sans-serif; padding: 2px 16px; border: 1px solid #ffffff5a; }
+.mb span.on { background: #242424; border-color: var(--acc, #fff); }
+/* battery icon states, full screen */
+#fx-vig, #fx-charge { position: absolute; left: 0; top: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { #fig.light { animation: none; } }
+@media (max-width: 640px) { .bezel { padding: 8px; border-radius: 12px; } }
+</style>
+
+<header class="top">
+  <div>
+    <h1>escape/UI</h1>
+    <p>Try the theme without a console: this page draws every picture with the same code as the generator on the Brick (same random numbers), at the sizes of theme.xml. The games are made-up or free ones. Keys: arrows, Enter = A, Backspace = B, M = START. Turn CHARGING on and wait 15 s for the charging screen. APPS → EscapeUI opens the settings app. <a href="https://github.com/obhateion/escape-ui">Project, install, guide →</a></p>
+  </div>
+  <div class="controls">
+    <div class="group" role="group" aria-label="Accent colour"><span>Accent</span><span id="swatches" class="group"></span></div>
+    <div class="group" role="group" aria-label="Screen">
+      <button class="tab" data-go="boot">Boot</button><button class="tab" data-go="sys">Systems</button>
+      <button class="tab" data-go="list">Games</button><button class="tab" data-go="menu">Menu</button><button class="tab" data-go="app">escape-UI</button>
+    </div>
+    <div class="group" role="group" aria-label="Figure motion"><span>Motion</span>
+      <button class="tab" data-mo="video">video</button><button class="tab" data-mo="light">light</button><button class="tab" data-mo="still">still</button></div>
+    <div class="group" role="group" aria-label="Battery simulator"><span>Battery</span>
+      <input type="range" id="batt-in" min="0" max="100" value="87" aria-label="Battery level" style="width:110px">
+      <span id="batt-val">87%</span><button class="tab" id="chg" aria-pressed="false">Charging</button></div>
+  </div>
+</header>
+
+<div class="frame" id="frame">
+  <div class="bezel"><div class="viewport" id="viewport"><div class="stage" id="stage">
+    <section class="scr" id="s-boot" hidden><canvas id="boot" class="abs" width="1024" height="768"></canvas></section>
+    <section class="scr" id="s-sys">
+      <canvas id="base" class="abs" width="1024" height="768"></canvas>
+      <canvas id="fig" class="abs" width="560" height="470"></canvas>
+      <canvas id="loop" class="abs" width="560" height="470"></canvas>
+      <canvas id="over" class="abs" width="1024" height="768"></canvas>
+      <div id="strip"></div>
+    </section>
+    <section class="scr" id="s-list" hidden>
+      <canvas id="base2" class="abs" width="1024" height="768"></canvas>
+      <canvas id="head" class="abs" width="460" height="64"></canvas>
+      <div id="rows"></div>
+      <canvas id="cover" class="abs" width="440" height="264"></canvas>
+      <div id="md-name"></div>
+      <div class="md-lbl" style="left:546px">PLAYED ×</div><div class="md-lbl" style="left:688px">TIME</div><div class="md-lbl" style="left:850px">LAST</div>
+      <div class="md-val" id="md-plays" style="left:546px"></div><div class="md-val" id="md-time" style="left:688px"></div><div class="md-val" id="md-last" style="left:850px"></div>
+      <div id="md-desc"></div>
+    </section>
+    <section class="scr" id="s-menu" hidden><div id="dim"></div><div id="menu" role="menu"></div></section>
+    <section class="scr" id="s-app" hidden><canvas id="app" class="abs" width="1024" height="768"></canvas></section>
+    <section class="scr" id="s-charge" hidden><canvas id="chg-screen" class="abs" width="1024" height="768"></canvas></section>
+    <div id="status"><span id="clock">12:00</span><span id="batt">87%</span></div>
+    <div id="help"></div>
+    <canvas id="fx-vig" width="1024" height="768"></canvas>
+    <canvas id="fx-charge" width="1024" height="768"></canvas>
+  </div></div></div>
+</div>
+<div class="pad">
+  <div class="keys"><button data-k="left" aria-label="Left">◀</button><button data-k="up" aria-label="Up">▲</button><button data-k="down" aria-label="Down">▼</button><button data-k="right" aria-label="Right">▶</button></div>
+  <div class="keys"><button data-k="b" aria-label="B">B</button><button data-k="a" aria-label="A">A</button><button data-k="start" aria-label="Start">START</button></div>
+</div>
+<!-- ca.glsl: red sampled +amount, blue −amount (0.0016 of the element: ~1 px on the figure, ~1.6 px full screen) -->
+<svg width="0" height="0" style="position:absolute"><filter id="ca" color-interpolation-filters="sRGB">
+  <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/><feOffset in="r" dx="-1.6" result="r2"/>
+  <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="g"/>
+  <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/><feOffset in="b" dx="1.6" result="b2"/>
+  <feBlend in="r2" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="b2" mode="screen"/>
+</filter></svg>
+<script>
+const DEVICE = {"accent": "orange", "cfg": {"boot_logo": "globe", "figures": {"ALL": "globe", "GAMES": "radar", "SOUND": "waves", "APPS": "cube"}, "patterns": {}}, "colls": {"ALL": ["Cave Story", "Celeste Classic", "ChipNomad", "Doom (shareware)", "EscapeUI", "LittleGPTracker", "Lo-Fi Lounge", "Night Driver 3000", "Orbit Patrol", "PortMaster", "Pulsar", "Quake (shareware)", "Sokoban Deluxe", "Star Courier: Remix", "SuperTux", "Tracker Demo", "Ёжик в тумане", "ドット探検"], "GAMES": ["Cave Story", "Celeste Classic", "Doom (shareware)", "Night Driver 3000", "Orbit Patrol", "Quake (shareware)", "Sokoban Deluxe", "Star Courier: Remix", "SuperTux", "Ёжик в тумане", "ドット探検"], "SOUND": ["ChipNomad", "LittleGPTracker", "Lo-Fi Lounge", "Pulsar", "Tracker Demo"], "APPS": ["EscapeUI", "PortMaster"]}, "info": {"Cave Story": {"s": "ports", "fav": true, "p": 14, "h": 75600, "l": "20261028", "d": "A small cave, a lost robot and a floating island. A homebrew classic, here as a port."}, "Celeste Classic": {"s": "pico8", "fav": true, "p": 31, "h": 32400, "l": "20261030", "d": "Climb the mountain one screen at a time. The original PICO-8 jam game."}, "ChipNomad": {"s": "ports", "fav": false, "p": 9, "h": 132600, "l": "20261031", "d": "A tracker for chiptune: patterns, phrases, chains."}, "Doom (shareware)": {"s": "prboom", "fav": false, "p": 6, "h": 22800, "l": "20261012", "d": "The first episode, free to share."}, "EscapeUI": {"s": "ports", "fav": false, "p": 22, "h": 3600, "l": "20261101", "d": "The settings app of this theme: colours, figures, patterns, boot logo."}, "LittleGPTracker": {"s": "ports", "fav": false, "p": 4, "h": 54000, "l": "20261020", "d": "A sample-based tracker inspired by LSDJ."}, "Lo-Fi Lounge": {"s": "ports", "fav": false, "p": 2, "h": 2700, "l": "20260930", "d": "A demo collection name: anything you make shows up like this."}, "Night Driver 3000": {"s": "pico8", "fav": false, "p": 0, "h": 0, "l": "", "d": "An imaginary racer, here to show a game you have never started."}, "Orbit Patrol": {"s": "pico8", "fav": false, "p": 3, "h": 4200, "l": "20261002", "d": "An imaginary shooter in orbit."}, "PortMaster": {"s": "ports", "fav": false, "p": 12, "h": 5700, "l": "20261025", "d": "Installs ports of games and apps."}, "Pulsar": {"s": "ports", "fav": false, "p": 5, "h": 18600, "l": "20261018", "d": "A pocket synth and sequencer."}, "Quake (shareware)": {"s": "tyrquake", "fav": false, "p": 2, "h": 7200, "l": "20260911", "d": "The shareware episode."}, "Sokoban Deluxe": {"s": "pico8", "fav": false, "p": 8, "h": 14400, "l": "20261009", "d": "Push the boxes. An imaginary puzzle game."}, "Star Courier: Remix": {"s": "pico8", "fav": false, "p": 1, "h": 1200, "l": "20261029", "d": "A name with a colon: SHARE cannot store it as a file name, so its sheet is drawn per rom file."}, "SuperTux": {"s": "ports", "fav": false, "p": 3, "h": 9000, "l": "20260920", "d": "The free penguin platformer."}, "Tracker Demo": {"s": "ports", "fav": false, "p": 0, "h": 0, "l": "", "d": "An imaginary song file."}, "Ёжик в тумане": {"s": "pico8", "fav": false, "p": 1, "h": 900, "l": "20261027", "d": "A Cyrillic name: the letters come from the system font, dotted for the dot-matrix one."}, "ドット探検": {"s": "pico8", "fav": false, "p": 0, "h": 0, "l": "", "d": "A Japanese name, drawn the same way."}}};
+const ORIGINAL = {};
+
+// ---------- Python's random, bit for bit (so stickers land exactly where tool/gen.py puts them) ----------
+// MT19937 + CPython's seeding: random.Random(int) and random.Random(str) (version 2: str + sha512).
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const utf8 = s => new TextEncoder().encode(s);
+function crc32(s) { let c = 0xffffffff; for (const b of utf8(s)) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+
+// sha512 with BigInt (only used to seed from strings; a few calls per page)
+const SHA512_K = ["428a2f98d728ae22","7137449123ef65cd","b5c0fbcfec4d3b2f","e9b5dba58189dbbc","3956c25bf348b538","59f111f1b605d019","923f82a4af194f9b","ab1c5ed5da6d8118","d807aa98a3030242","12835b0145706fbe","243185be4ee4b28c","550c7dc3d5ffb4e2","72be5d74f27b896f","80deb1fe3b1696b1","9bdc06a725c71235","c19bf174cf692694","e49b69c19ef14ad2","efbe4786384f25e3","0fc19dc68b8cd5b5","240ca1cc77ac9c65","2de92c6f592b0275","4a7484aa6ea6e483","5cb0a9dcbd41fbd4","76f988da831153b5","983e5152ee66dfab","a831c66d2db43210","b00327c898fb213f","bf597fc7beef0ee4","c6e00bf33da88fc2","d5a79147930aa725","06ca6351e003826f","142929670a0e6e70","27b70a8546d22ffc","2e1b21385c26c926","4d2c6dfc5ac42aed","53380d139d95b3df","650a73548baf63de","766a0abb3c77b2a8","81c2c92e47edaee6","92722c851482353b","a2bfe8a14cf10364","a81a664bbc423001","c24b8b70d0f89791","c76c51a30654be30","d192e819d6ef5218","d69906245565a910","f40e35855771202a","106aa07032bbd1b8","19a4c116b8d2d0c8","1e376c085141ab53","2748774cdf8eeb99","34b0bcb5e19b48a8","391c0cb3c5c95a63","4ed8aa4ae3418acb","5b9cca4f7763e373","682e6ff3d6b2b8a3","748f82ee5defb2fc","78a5636f43172f60","84c87814a1f0ab72","8cc702081a6439ec","90befffa23631e28","a4506cebde82bde9","bef9a3f7b2c67915","c67178f2e372532b","ca273eceea26619c","d186b8c721c0c207","eada7dd6cde0eb1e","f57d4f7fee6ed178","06f067aa72176fba","0a637dc5a2c898a6","113f9804bef90dae","1b710b35131c471b","28db77f523047d84","32caab7b40c72493","3c9ebe0a15c9bebc","431d67c49c100d4c","4cc5d4becb3e42b6","597f299cfc657e2a","5fcb6fab3ad6faec","6c44198c4a475817"].map(h => BigInt("0x" + h));
+function sha512(bytes) {
+  const M = (1n << 64n) - 1n, rotr = (x, n) => ((x >> BigInt(n)) | (x << BigInt(64 - n))) & M;
+  let H = ["6a09e667f3bcc908","bb67ae8584caa73b","3c6ef372fe94f82b","a54ff53a5f1d36f1","510e527fade682d1","9b05688c2b3e6c1f","1f83d9abfb41bd6b","5be0cd19137e2179"].map(h => BigInt("0x" + h));
+  const L = bytes.length, padLen = ((L + 17 + 127) >> 7) << 7, m = new Uint8Array(padLen);
+  m.set(bytes); m[L] = 0x80; let bits = BigInt(L) * 8n;
+  for (let i = 0; i < 16; i++) { m[padLen - 1 - i] = Number(bits & 0xffn); bits >>= 8n; }
+  const w = new Array(80);
+  for (let o = 0; o < padLen; o += 128) {
+    for (let i = 0; i < 16; i++) { let v = 0n; for (let j = 0; j < 8; j++) v = (v << 8n) | BigInt(m[o + i * 8 + j]); w[i] = v; }
+    for (let i = 16; i < 80; i++) {
+      const s0 = rotr(w[i - 15], 1) ^ rotr(w[i - 15], 8) ^ (w[i - 15] >> 7n), s1 = rotr(w[i - 2], 19) ^ rotr(w[i - 2], 61) ^ (w[i - 2] >> 6n);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) & M;
+    }
+    let [a, b, c, d, e, f, g, h] = H;
+    for (let i = 0; i < 80; i++) {
+      const S1 = rotr(e, 14) ^ rotr(e, 18) ^ rotr(e, 41), ch = (e & f) ^ (~e & M & g);
+      const t1 = (h + S1 + ch + SHA512_K[i] + w[i]) & M, S0 = rotr(a, 28) ^ rotr(a, 34) ^ rotr(a, 39), mj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + mj) & M; h = g; g = f; f = e; e = (d + t1) & M; d = c; c = b; b = a; a = (t1 + t2) & M;
+    }
+    H = H.map((x, i) => (x + [a, b, c, d, e, f, g, h][i]) & M);
+  }
+  const out = new Uint8Array(64);
+  H.forEach((x, i) => { for (let j = 7; j >= 0; j--) { out[i * 8 + j] = Number(x & 0xffn); x >>= 8n; } });
+  return out;
+}
+
+class PyRandom {
+  constructor(seed) {
+    let n;
+    if (typeof seed === "string") {   // version 2: int.from_bytes(s + sha512(s), "big")
+      const a = utf8(seed), all = new Uint8Array(a.length + 64); all.set(a); all.set(sha512(a), a.length);
+      n = 0n; for (const b of all) n = (n << 8n) | BigInt(b);
+    } else n = BigInt(Math.abs(seed));
+    const key = []; do { key.push(Number(n & 0xffffffffn)); n >>= 32n; } while (n > 0n);
+    this.mt = new Uint32Array(624); this.i = 625; this.initByArray(key);
+  }
+  initGenrand(s) { const mt = this.mt; mt[0] = s >>> 0; for (let i = 1; i < 624; i++) { const p = mt[i - 1] ^ (mt[i - 1] >>> 30); mt[i] = (Math.imul(1812433253, p) + i) >>> 0; } this.i = 624; }
+  initByArray(key) {
+    this.initGenrand(19650218); const mt = this.mt, kl = key.length; let i = 1, j = 0;
+    for (let k = Math.max(624, kl); k; k--) {
+      const p = mt[i - 1] ^ (mt[i - 1] >>> 30);
+      mt[i] = ((mt[i] ^ Math.imul(p, 1664525)) + key[j] + j) >>> 0; i++; j++;
+      if (i >= 624) { mt[0] = mt[623]; i = 1; } if (j >= kl) j = 0;
+    }
+    for (let k = 623; k; k--) {
+      const p = mt[i - 1] ^ (mt[i - 1] >>> 30);
+      mt[i] = ((mt[i] ^ Math.imul(p, 1566083941)) - i) >>> 0; i++;
+      if (i >= 624) { mt[0] = mt[623]; i = 1; }
+    }
+    mt[0] = 0x80000000;
+  }
+  u32() {
+    const mt = this.mt;
+    if (this.i >= 624) {
+      for (let k = 0; k < 624; k++) {
+        const y = (mt[k] & 0x80000000) | (mt[(k + 1) % 624] & 0x7fffffff);
+        mt[k] = mt[(k + 397) % 624] ^ (y >>> 1) ^ (y & 1 ? 0x9908b0df : 0);
+      }
+      this.i = 0;
+    }
+    let y = mt[this.i++];
+    y ^= y >>> 11; y ^= (y << 7) & 0x9d2c5680; y ^= (y << 15) & 0xefc60000; y ^= y >>> 18;
+    return y >>> 0;
+  }
+  random() { const a = this.u32() >>> 5, b = this.u32() >>> 6; return (a * 67108864 + b) / 9007199254740992; }
+  getrandbits(k) { return this.u32() >>> (32 - k); }   // k <= 32 is all this page needs
+  randbelow(n) { const k = n.toString(2).length; let r = this.getrandbits(k); while (r >= n) r = this.getrandbits(k); return r; }
+  randrange(n) { return this.randbelow(n); }
+  choice(a) { return a[this.randbelow(a.length)]; }
+  shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = this.randbelow(i + 1); [a[i], a[j]] = [a[j], a[i]]; } }
+}
+const rng = seed => new PyRandom(crc32(seed));
+
+// ---------- the 18 figures, line for line from theme/tool/shapes.py ----------
+const TAU = Math.PI * 2;
+const SH_INK = [233, 233, 230];
+const SHAPE_NAMES = { globe: "wire globe", checker: "checker sphere", waves: "wave field", warp: "warp grid", orbits: "orbit rings",
+  target: "target", spiral: "spiral", burst: "starburst", torus: "torus", cube: "wire cube", tunnel: "tunnel", dots: "dot sphere",
+  helix: "helix", lissajous: "lissajous", rose: "rose", radar: "radar", floor: "y2k floor", stars: "star stack" };
+const SHAPE_LIST = Object.keys(SHAPE_NAMES);
+
+class Pen {
+  // the Pen of shapes.py on a canvas: colour, width, alpha; `mul` dims every colour (the 62 % of the card)
+  constructor(c, lw, mul = 1) { this.c = c; this.lw = lw; this.col = SH_INK; this.alpha = 1; this.mul = mul; c.lineJoin = "round"; c.lineCap = "round"; }
+  rgba(col, a) { const k = this.mul, c = col || this.col; return `rgba(${c[0] * k | 0},${c[1] * k | 0},${c[2] * k | 0},${Math.max(0, Math.min(1, a == null ? this.alpha : a))})`; }
+  poly(pts, close) {
+    const list = pts.slice(); if (close && pts.length && pts[0]) list.push(pts[0]);
+    let run = [];
+    for (const p of list) { if (!p) { this.run(run); run = []; } else run.push(p); }
+    this.run(run);
+  }
+  run(run) {
+    if (run.length < 2) return;
+    const c = this.c; c.strokeStyle = this.rgba(); c.lineWidth = Math.max(0.5, this.lw);
+    c.beginPath(); c.moveTo(run[0][0], run[0][1]); for (let i = 1; i < run.length; i++) c.lineTo(run[i][0], run[i][1]); c.stroke();
+  }
+  line(x0, y0, x1, y1) { this.run([[x0, y0], [x1, y1]]); }
+  ellipse(cx, cy, rx, ry, rot = 0, a0 = 0, a1 = TAU, n = 96) {
+    const pts = [];
+    for (let i = 0; i <= n; i++) {
+      const a = a0 + (a1 - a0) * i / n, x = Math.cos(a) * rx, y = Math.sin(a) * ry;
+      pts.push([cx + x * Math.cos(rot) - y * Math.sin(rot), cy + x * Math.sin(rot) + y * Math.cos(rot)]);
+    }
+    this.poly(pts);
+  }
+  circle(cx, cy, r) { this.ellipse(cx, cy, r, r); }
+  arc(cx, cy, r, a0, a1) { this.ellipse(cx, cy, r, r, 0, a0, a1, Math.max(8, Math.floor(Math.abs(a1 - a0) * 30))); }
+  dot(cx, cy, r, col, a) { const c = this.c; c.fillStyle = this.rgba(col, a); c.beginPath(); c.arc(cx, cy, Math.max(0.5, r), 0, TAU); c.fill(); }
+  fillPoly(pts, col, a) { const c = this.c; c.fillStyle = this.rgba(col, a); c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) c.lineTo(p[0], p[1]); c.closePath(); c.fill(); }
+  rect(x, y, w, h) { this.poly([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], true); }
+  dashedCircle(cx, cy, r, dash, gap, offset) {
+    const circ = TAU * r, step = dash + gap; let s = -(((offset % step) + step) % step);
+    while (s < circ) { const a0 = Math.max(0, s) / r, a1 = Math.min(circ, s + dash) / r; if (a1 > a0) this.arc(cx, cy, r, a0, a1); s += step; }
+  }
+}
+function sphere(cx, cy, R, lat, lon, t) { const l = lon + t, x = Math.cos(lat) * Math.sin(l), z = Math.cos(lat) * Math.cos(l); return z < -0.02 ? null : [cx + R * x, cy - R * Math.sin(lat), z]; }
+function rot3(p, ax, ay) { const [x, y, z] = p, c = Math.cos(ax), s = Math.sin(ax), y1 = y * c - z * s, z1 = y * s + z * c, c2 = Math.cos(ay), s2 = Math.sin(ay); return [x * c2 + z1 * s2, y1, -x * s2 + z1 * c2]; }
+const SHAPES = {
+  globe(p, cx, cy, R, t, a) {
+    p.circle(cx, cy, R);
+    for (let k = 0; k < 12; k++) { const lon = k * TAU / 12, pts = []; for (let i = 0; i < 41; i++) pts.push(sphere(cx, cy, R, -Math.PI / 2 + i * Math.PI / 40, lon, t)); p.poly(pts); }
+    for (let k = 1; k < 8; k++) { const lat = -Math.PI / 2 + k * Math.PI / 8; p.ellipse(cx, cy - R * Math.sin(lat), R * Math.cos(lat), R * Math.cos(lat) * 0.16, 0, 0, Math.PI); }
+    p.col = a; p.ellipse(cx, cy, R * 1.32, R * 0.32, -0.32);
+  },
+  checker(p, cx, cy, R, t, a) {
+    const nlat = 10, nlon = 16;
+    for (let i = 0; i < nlat; i++) for (let j = 0; j < nlon; j++) {
+      if ((i + j) % 2) continue;
+      const la0 = -Math.PI / 2 + i * Math.PI / nlat, la1 = la0 + Math.PI / nlat, lo0 = j * TAU / nlon, lo1 = lo0 + TAU / nlon;
+      const q = [sphere(cx, cy, R, la0, lo0, t), sphere(cx, cy, R, la0, lo1, t), sphere(cx, cy, R, la1, lo1, t), sphere(cx, cy, R, la1, lo0, t)];
+      if (q.some(v => !v)) continue;
+      p.fillPoly(q, null, 0.25 + 0.75 * Math.min(1, q[0][2] * 1.4));
+    }
+    p.circle(cx, cy, R); p.dot(cx + R * 0.92, cy - R * 0.92, 7, a, 1);
+  },
+  waves(p, cx, cy, R, t, a) {
+    for (let k = 0; k < 13; k++) {
+      const y0 = cy - R + k * (2 * R / 12), pts = []; let x = -R * 1.3;
+      while (x <= R * 1.3) { const env = Math.exp(-(x * x) / (R * R * 0.6)); pts.push([cx + x, y0 + Math.sin(x * 0.03 + t * 3 + k * 0.5) * 34 * env]); x += 6; }
+      p.col = k === 6 ? a : SH_INK; p.poly(pts);
+    }
+    p.col = SH_INK;
+  },
+  warp(p, cx, cy, R, t, a) {
+    const n = 12, s = 2 * R / n;
+    const d = (x, y) => { const r = Math.hypot(x, y) / R, k = 1 + 0.35 * Math.sin(r * 4 - t * 2) * Math.max(0, 1 - r); return [cx + x * k, cy + y * k]; };
+    for (let i = 0; i <= n; i++) { const pts = [], pts2 = []; for (let j = 0; j < 41; j++) { const u = -R + j * 2 * R / 40, v = -R + i * s; pts.push(d(u, v)); pts2.push(d(v, u)); } p.poly(pts); p.poly(pts2); }
+    p.col = a; p.rect(cx - R - 10, cy - R - 10, 2 * R + 20, 2 * R + 20);
+  },
+  orbits(p, cx, cy, R, t, a) {
+    p.circle(cx, cy, R * 0.22);
+    [[0, 1], [1.05, -1], [2.1, 2]].forEach(([rot, sp], i) => {
+      p.ellipse(cx, cy, R, R * 0.3, rot);
+      const ph = t * sp + i * 2, x = Math.cos(ph) * R, y = Math.sin(ph) * R * 0.3;
+      p.dot(cx + x * Math.cos(rot) - y * Math.sin(rot), cy + x * Math.sin(rot) + y * Math.cos(rot), 8, i === 0 ? a : SH_INK);
+    });
+  },
+  target(p, cx, cy, R, t, a) {
+    for (let k = 1; k < 6; k++) p.circle(cx, cy, R * k / 5);
+    p.dashedCircle(cx, cy, R * 1.18, 4, 10, -t * 182 / TAU);
+    for (let k = 0; k < 4; k++) { const an = k * Math.PI / 2; p.line(cx + Math.cos(an) * R * 1.05, cy + Math.sin(an) * R * 1.05, cx + Math.cos(an) * R * 1.32, cy + Math.sin(an) * R * 1.32); }
+    p.col = a; p.arc(cx, cy, R * 1.18, t, t + 0.8);
+  },
+  spiral(p, cx, cy, R, t, a) {
+    const pts = []; for (let i = 0; i < 601; i++) { const th = i / 600 * TAU * 7, r = R * i / 600; pts.push([cx + Math.cos(th - t * 1.5) * r, cy + Math.sin(th - t * 1.5) * r]); }
+    p.poly(pts); p.dot(cx + Math.cos(TAU * 7 - t * 1.5) * R, cy + Math.sin(TAU * 7 - t * 1.5) * R, 8, a);
+  },
+  burst(p, cx, cy, R, t, a) {
+    for (let k = 0; k < 72; k++) { const an = k * TAU / 72 + t / 36, ln = R * (0.45 + 0.55 * Math.abs(Math.sin(k * 1.7 + t * (1.7 + Math.PI) / Math.PI))); p.line(cx + Math.cos(an) * R * 0.3, cy + Math.sin(an) * R * 0.3, cx + Math.cos(an) * ln, cy + Math.sin(an) * ln); }
+    p.col = a; p.circle(cx, cy, R * 0.3);
+  },
+  torus(p, cx, cy, R, t, a) {
+    const ring = (u0, isU) => {
+      const pts = [];
+      for (let k = 0; k < 49; k++) {
+        const u = isU ? u0 : k * TAU / 48, v = isU ? k * TAU / 48 : u0, uu = u + t / 24;
+        const q = rot3([(1 + 0.42 * Math.cos(v)) * Math.cos(uu), 0.42 * Math.sin(v), (1 + 0.42 * Math.cos(v)) * Math.sin(uu)], 1.0, 0.3);
+        pts.push(q[2] < -0.55 ? null : [cx + q[0] * R * 0.72, cy + q[1] * R * 0.72]);
+      }
+      p.poly(pts);
+    };
+    for (let i = 0; i < 24; i++) ring(i * TAU / 24, true);
+    p.col = a; for (let i = 0; i < 2; i++) ring(i * Math.PI, false);
+  },
+  cube(p, cx, cy, R, t, a) {
+    const box = (s, col) => {
+      p.col = col; const c = Math.cos(t / 4), sn = Math.sin(t / 4), v = [];
+      for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) v.push(rot3([(x * c - z * sn) * s, y * s, (x * sn + z * c) * s], 0.6, 0.5));
+      for (const [i, j] of [[0, 1], [0, 2], [0, 4], [1, 3], [1, 5], [2, 3], [2, 6], [3, 7], [4, 5], [4, 6], [5, 7], [6, 7]]) p.line(cx + v[i][0] * R * 0.6, cy + v[i][1] * R * 0.6, cx + v[j][0] * R * 0.6, cy + v[j][1] * R * 0.6);
+    };
+    box(1, SH_INK); box(0.5, a);
+  },
+  tunnel(p, cx, cy, R, t, a) {
+    for (let k = 0; k < 14; k++) { const f = (((k / 14 + t * 0.15) % 1) + 1) % 1, s = Math.pow(f, 2.2) * R * 1.3; p.alpha = Math.min(1, f * 1.6); p.rect(cx - s, cy - s * 0.75, 2 * s, 1.5 * s); }
+    p.alpha = 1; p.col = a;
+    p.line(cx - R * 1.3, cy - R * 0.98, cx + R * 1.3, cy + R * 0.98); p.line(cx + R * 1.3, cy - R * 0.98, cx - R * 1.3, cy + R * 0.98);
+  },
+  dots(p, cx, cy, R, t, a) {
+    const n = 420, ga = Math.PI * (3 - Math.sqrt(5));
+    for (let i = 0; i < n; i++) {
+      const y = 1 - (i / (n - 1)) * 2, r0 = Math.sqrt(Math.max(0, 1 - y * y)), th = ga * i, q = rot3([Math.cos(th) * r0, y, Math.sin(th) * r0], 0.35, t);
+      if (q[2] < -0.1) continue;
+      p.dot(cx + q[0] * R, cy + q[1] * R, 2 + 3 * q[2], i % 37 === 0 ? a : SH_INK, 0.3 + 0.7 * q[2]);
+    }
+  },
+  helix(p, cx, cy, R, t, a) {
+    for (let s = 0; s < 2; s++) { const pts = []; for (let k = 0; k < 121; k++) { const y = cy - R * 1.2 + k * 2.4 * R / 120, ph = k * 0.16 + t * 2 + s * Math.PI; pts.push([cx + Math.sin(ph) * R * 0.5, y]); } p.poly(pts); }
+    for (let k = 0; k < 121; k += 8) { const y = cy - R * 1.2 + k * 2.4 * R / 120, ph = k * 0.16 + t * 2; p.col = k % 24 ? SH_INK : a; p.line(cx + Math.sin(ph) * R * 0.5, y, cx - Math.sin(ph) * R * 0.5, y); }
+    p.col = SH_INK;
+  },
+  lissajous(p, cx, cy, R, t, a) {
+    const pts = []; for (let k = 0; k < 801; k++) pts.push([cx + Math.sin(3 * (k / 800 * TAU) + t) * R, cy + Math.sin(4 * (k / 800 * TAU)) * R * 0.8]);
+    p.poly(pts); p.col = a; p.rect(cx - R - 14, cy - R * 0.8 - 14, 2 * R + 28, 1.6 * R + 28);
+  },
+  rose(p, cx, cy, R, t, a) {
+    const pts = []; for (let k = 0; k < 901; k++) { const th = k / 900 * TAU * 2, r = R * Math.cos(2.5 * th); pts.push([cx + Math.cos(th + t * 0.4) * r, cy + Math.sin(th + t * 0.4) * r]); }
+    p.poly(pts); p.dot(cx, cy, 7, a);
+  },
+  radar(p, cx, cy, R, t, a) {
+    for (let k = 1; k < 5; k++) p.circle(cx, cy, R * k / 4);
+    p.line(cx - R, cy, cx + R, cy); p.line(cx, cy - R, cx, cy + R);
+    const an = t * 2.2;
+    for (let k = 0; k < 24; k++) { p.alpha = (1 - k / 24) * 0.6; p.line(cx, cy, cx + Math.cos(an - k * 0.03) * R, cy + Math.sin(an - k * 0.03) * R); }
+    p.alpha = 1;
+    for (const [b, d] of [[0.6, 0.8], [2.4, 0.5], [4.1, 0.7]]) p.dot(cx + Math.cos(b) * R * d, cy + Math.sin(b) * R * d, 6, a);
+  },
+  floor(p, cx, cy, R, t, a) {
+    const hz = cy - R * 0.1, bottom = cy + R * 1.2;
+    for (let k = -10; k < 11; k++) p.line(cx + k * 8, hz, cx + k * R * 0.32, bottom);
+    for (let k = 0; k < 12; k++) { const f = Math.pow((((k / 12 + t * 0.2) % 1) + 1) % 1, 2), y = hz + f * (bottom - hz); p.alpha = f; p.line(cx - R * 3.4 * f - 20, y, cx + R * 3.4 * f + 20, y); }
+    p.alpha = 1; p.col = a;
+    const r = R * 0.6; p.arc(cx, hz, r, Math.PI, TAU);
+    for (let k = 1; k < 9; k++) { const y = hz - k * k * 1.6 - 4; if (hz - y < r) { const half = Math.sqrt(r * r - (hz - y) ** 2); p.line(cx - half, y, cx + half, y); } }
+  },
+  stars(p, cx, cy, R, t, a) {
+    const star = (r, n, rot) => { const pts = []; for (let k = 0; k < n * 2 + 1; k++) { const rr = k % 2 ? r * 0.45 : r, an = rot + k * Math.PI / n; pts.push([cx + Math.cos(an) * rr, cy + Math.sin(an) * rr]); } p.poly(pts); };
+    for (let k = 0; k < 6; k++) { const n = 5 + (k % 3); star(R * (1 - k * 0.15), n, t * 4 / n * (k % 2 ? -1 : 1) + k); }
+    p.col = a; star(R * 0.18, 4, t);
+  },
+};
+// shapes.render(): a frame at (w, h) on black; ss=2 there means line widths are round(lw*2)/2 here
+function renderShape(c, shape, t, accent, w, h, lw = 2, R = null, mul = 1, x0 = 0, y0 = 0) {
+  c.save(); c.translate(x0, y0);
+  const p = new Pen(c, Math.round(lw * 2) / 2, mul);
+  (SHAPES[shape] || SHAPES.globe)(p, w / 2, h / 2, R || Math.min(w, h) * 0.36, t, accent);
+  c.restore();
+}
+// LOOP of gen.py: the shortest seamless span of t and how long it takes (seconds)
+const LOOP = { globe: [TAU / 12, 2.5], checker: [Math.PI / 4, 4], waves: [TAU / 3, 3], warp: [Math.PI, 3.5], orbits: [TAU, 12], target: [TAU, 12],
+  spiral: [4 * Math.PI / 3, 8], burst: [Math.PI, 6], torus: [TAU, 3], cube: [TAU, 3.5], tunnel: [1 / 14 / 0.15, 3], dots: [TAU, 14],
+  helix: [Math.PI, 3], lissajous: [Math.PI / 2, 3], rose: [Math.PI, 6], radar: [TAU / 2.2, 6], floor: [1 / 12 / 0.2, 2.5], stars: [Math.PI / 2, 6] };
+
+// ---------- theme/tool/art.py + the drawing half of gen.py, on canvases ----------
+const VOID = [0, 0, 0], INK = [242, 242, 238], DIM = [110, 110, 107];
+const W = 1024, H = 768, HERO = [430, 96, 560, 470], FIG_LW = 2.2;
+const PALETTE = [["white", "White", [242, 242, 238]], ["red", "Red", [255, 42, 31]], ["orange", "Orange", [255, 106, 19]],
+  ["yellow", "Yellow", [255, 214, 10]], ["acid", "Acid", [216, 255, 60]], ["green", "Green", [40, 230, 120]],
+  ["ice", "Ice", [143, 220, 255]], ["blue", "Blue", [52, 120, 255]], ["violet", "Violet", [185, 140, 255]], ["pink", "Pink", [255, 70, 170]]];
+const ACCENT_RGB = Object.fromEntries(PALETTE.map(([s, , c]) => [s, c]));
+const KATA = { ALL: "エスケープ", GAMES: "ゲーム", SOUND: "サウンド", APPS: "アプリ" };
+const KANJI = { ALL: "脱出", GAMES: "遊", SOUND: "音", APPS: "道具" };
+const MORE_KATA = ["プレイ", "セーブ", "スタート", "ロード", "ハイスコア", "データ", "コンティニュー", "ステージ", "ボーナス", "サウンド", "ゲーム"];
+const MORE_KANJI = ["遊", "音", "夢", "光", "道", "星", "波", "脱出", "注意", "危険", "再生"];
+const STAMPS = [["EXPLICIT", "ESCAPE", "CONTENT"], ["HANDLE", "WITH", "CARE"], ["HIGH", "VOLTAGE", "SOUND"], ["NO", "SIGNAL", "FOUND"],
+  ["SYSTEM", "OVER", "RIDE"], ["PLAY", "AT OWN", "RISK"], ["LOW", "BATT", "MODE"], ["DO NOT", "PRESS", "START"],
+  ["FREE", "TO", "LEAVE"], ["LOUD", "AND", "CLEAR"], ["ZERO", "LAG", "ZONE"], ["NIGHT", "SHIFT", "ONLY"], ["NOT A", "TOY", "ACTUALLY"]];
+const PILLS = ["online", "hi-fi", "stereo", "local", "beta", "rom ok", "8-bit", "v2.0", "no save", "loop", "live", "x-001", "dual",
+  "rgb", "mono", "4:3", "no.01", "tilt", "lo-fi", "jp", "save ok", "turbo", "cpu 1", "zero", "new"];
+const CHEVS = [">>>", "<<<", "///", "+++", ">>|", "<>", "::", "=>>", "///>"];
+const BLURB = { ALL: "Everything on the card in one list.", APPS: "Tools, launchers and ports that are not games.",
+  GAMES: "Games only, from every console and port.", SOUND: "Trackers, synths and sequencers." };
+const DEFAULT_FIG = { ALL: "globe", APPS: "cube", GAMES: "checker", SOUND: "waves", "custom-collections": "orbits" };
+
+const css = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${c.length > 3 ? c[3] / 255 : a})`;
+const pad2 = n => String(n).padStart(2, "0");
+function mk(w, h) { const c = document.createElement("canvas"); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); return c; }
+const ctx = cv => cv.getContext("2d");
+
+// fonts: the same families the theme ships (PIL sizes are em sizes in px, as in CSS)
+const FAMILY = { dot: '"Doto"', px: '"Silkscreen"', pxb: '"Silkscreen"', grot: '"Archivo"', jp: '"Noto Sans JP"' };
+function font(kind, size, wght) { const w = kind === "pxb" ? 700 : (wght || (kind === "dot" ? 400 : 400)); return { s: `${w} ${size}px ${FAMILY[kind]}`, size }; }
+function textLen(f, s) { const c = MEASURE; c.font = f.s; return c.measureText(s).width; }
+const MEASURE = ctx(mk(4, 4));
+// Pillow anchors: horizontal l/m/r, vertical a(ascender)/t/m(middle of ascender..descender)/s(baseline)/d
+function text(c, x, y, s, f, fill, anchor = "la") {
+  c.font = f.s; c.fillStyle = Array.isArray(fill) ? css(fill) : fill;
+  c.textAlign = { l: "left", m: "center", r: "right" }[anchor[0]];
+  c.textBaseline = "alphabetic";
+  const m = c.measureText(s), asc = m.fontBoundingBoxAscent, desc = m.fontBoundingBoxDescent, v = anchor[1];
+  const by = v === "a" || v === "t" ? y + asc : v === "m" ? y + (asc - desc) / 2 : v === "d" ? y - desc : y;
+  c.fillText(s, x, by);
+}
+function textSpaced(c, x, y, s, f, fill, anchor, spacing) { for (const ch of s) { text(c, x, y, ch, f, fill, anchor); x += textLen(f, ch) + spacing; } }
+function textW(f, s, spacing = 0) { return spacing ? [...s].reduce((a, ch) => a + textLen(f, ch) + spacing, 0) - spacing : textLen(f, s); }
+
+function poly(c, pts, fill, stroke, lw = 1) { c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) c.lineTo(p[0], p[1]); c.closePath(); if (fill) { c.fillStyle = css(fill); c.fill(); } if (stroke) { c.strokeStyle = css(stroke); c.lineWidth = lw; c.stroke(); } }
+function rect(c, x0, y0, x1, y1, fill, outline, w = 1) {   // Pillow's inclusive [x0, y0, x1, y1]
+  if (fill) { c.fillStyle = css(fill); c.fillRect(x0, y0, x1 - x0 + 1, y1 - y0 + 1); }
+  if (outline) { c.strokeStyle = css(outline); c.lineWidth = w; c.strokeRect(x0 + w / 2, y0 + w / 2, x1 - x0 + 1 - w, y1 - y0 + 1 - w); }
+}
+function ellipse(c, x0, y0, x1, y1, fill, outline, w = 1) {
+  c.beginPath(); c.ellipse((x0 + x1 + 1) / 2, (y0 + y1 + 1) / 2, Math.max(0.1, (x1 - x0 + 1 - w) / 2), Math.max(0.1, (y1 - y0 + 1 - w) / 2), 0, 0, TAU);
+  if (fill) { c.fillStyle = css(fill); c.fill(); } if (outline) { c.strokeStyle = css(outline); c.lineWidth = w; c.stroke(); }
+}
+function rrect(c, x0, y0, x1, y1, r, fill, outline) {
+  c.beginPath(); c.roundRect(x0 + 0.5, y0 + 0.5, x1 - x0, y1 - y0, r);
+  if (fill) { c.fillStyle = css(fill); c.fill(); } if (outline) { c.strokeStyle = css(outline); c.lineWidth = 1; c.stroke(); }
+}
+function line(c, pts, col, w = 1) { c.beginPath(); c.moveTo(pts[0][0] + 0.5, pts[0][1] + 0.5); for (const p of pts.slice(1)) c.lineTo(p[0] + 0.5, p[1] + 0.5); c.strokeStyle = css(col); c.lineWidth = w; c.stroke(); }
+// Image.rotate(deg, expand=True): counter-clockwise, new box = the rotated corners' bounds
+function rotated(src, deg) {
+  if (!deg) return src;
+  const a = deg * Math.PI / 180, w = src.width, h = src.height, cs = Math.cos(a), sn = Math.sin(a);
+  const xs = [], ys = [];
+  for (const [x, y] of [[0, 0], [w, 0], [w, h], [0, h]]) { const dx = x - w / 2, dy = y - h / 2; xs.push(dx * cs + dy * sn); ys.push(-dx * sn + dy * cs); }
+  const nw = Math.ceil(Math.max(...xs)) - Math.floor(Math.min(...xs)), nh = Math.ceil(Math.max(...ys)) - Math.floor(Math.min(...ys));
+  const out = mk(nw, nh), c = ctx(out); c.translate(nw / 2, nh / 2); c.rotate(-a); c.drawImage(src, -w / 2, -h / 2); return out;
+}
+function bbox(cv) {   // Image.getbbox() on the alpha
+  const d = ctx(cv).getImageData(0, 0, cv.width, cv.height).data; let x0 = cv.width, y0 = cv.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) if (d[(y * cv.width + x) * 4 + 3]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  return x1 < 0 ? [0, 0, 1, 1] : [x0, y0, x1 + 1, y1 + 1];
+}
+function crop(cv, b) { const out = mk(b[2] - b[0], b[3] - b[1]); ctx(out).drawImage(cv, -b[0], -b[1]); return out; }
+
+// ---------- sticker parts ----------
+function pill(c, x, y, s, filled = false, col = INK) {
+  const f = font("px", 9), w = textW(f, s.toUpperCase()) + 16;
+  rrect(c, x, y, x + w, y + 18, 9, filled ? col : null, col);
+  text(c, x + 8, y + 9, s.toUpperCase(), f, filled ? VOID : col, "lm");
+  return w;
+}
+function sparkle(c, cx, cy, r, col = INK) { const pts = []; for (let k = 0; k < 8; k++) { const an = k * Math.PI / 4 - Math.PI / 2, rr = k % 2 === 0 ? r : r * 0.22; pts.push([cx + Math.cos(an) * rr, cy + Math.sin(an) * rr]); } poly(c, pts, col); }
+function warnTri(c, x, y, w = 22, h = 20, col = INK, mark = VOID) { poly(c, [[x + w / 2, y], [x + w, y + h], [x, y + h]], col); text(c, x + w / 2, y + h * 0.66, "!", font("pxb", 9), mark, "mm"); }
+function stripes(c, x, y, w = 46, h = 9, col = INK) { for (let k = -h; k < w; k += 6) poly(c, [[x + k, y + h], [x + k + 3, y + h], [x + k + 3 + h, y], [x + k + h, y]], col); }
+function stripesLayer(w, h, col) { const cv = mk(w, h); stripes(ctx(cv), 0, 0, w, h, col); return cv; }
+function bars(c, x, y, w = 64, h = 14, col = INK, seed = 0) {
+  const r = new PyRandom(seed); let xx = x;
+  while (xx < x + w) { const bw = r.choice([1, 1, 2, 3]); rect(c, xx, y, xx + bw - 1, y + h, col); xx += bw + r.choice([1, 2, 3]); }
+}
+function vtext(c, x, y, s, f, fill, gap = 4) { for (const ch of s) { text(c, x, y, ch, f, fill, "mt"); y += f.size + gap; } }
+function stamp(kind, words, accent) {
+  const [a, b, cc] = words; let cv, c;
+  if (kind === 0) {
+    const fb = font("dot", 26, 900), fs = font("px", 10), w = Math.floor(Math.max(textW(fb, a), textW(fb, cc), textW(fs, b)) + 28), h = 104;
+    cv = mk(w, h); c = ctx(cv);
+    rect(c, 0, 0, w - 1, h - 1, VOID, INK, 2); text(c, w / 2, 22, a, fb, INK, "mm");
+    rect(c, 2, 38, w - 3, 62, INK); text(c, w / 2, 50, b, fs, VOID, "mm"); text(c, w / 2, 82, cc, fb, INK, "mm");
+  } else if (kind === 1) {
+    cv = mk(112, 112); c = ctx(cv);
+    ellipse(c, 0, 0, 111, 111, VOID, INK, 2); ellipse(c, 7, 7, 104, 104, null, INK, 1);
+    text(c, 56, 30, a, font("px", 8), INK, "mm"); text(c, 56, 56, b, font("dot", 22, 900), accent, "mm"); text(c, 56, 82, cc, font("px", 8), INK, "mm");
+  } else {
+    const fb = font("dot", 24, 900), w = Math.floor(textW(fb, b) + 54), h = 58; cv = mk(w, h); c = ctx(cv);
+    poly(c, [[0, h / 2], [18, 0], [w - 1, 0], [w - 1, h - 1], [18, h - 1]], INK); ellipse(c, 10, h / 2 - 5, 20, h / 2 + 5, VOID);
+    text(c, 30, 20, b, fb, VOID, "lm"); text(c, 30, 44, a + " " + cc, font("px", 8), VOID, "lm");
+  }
+  return cv;
+}
+function hazardBand(w, h, col = INK) { const cv = mk(w, h), c = ctx(cv); for (let k = -h; k < w; k += 18) poly(c, [[k, h], [k + 9, h], [k + 9 + h, 0], [k + h, 0]], col); return cv; }
+function badge(num, col = INK) { const cv = mk(74, 74), c = ctx(cv); ellipse(c, 0, 0, 73, 73, VOID, col); ellipse(c, 5, 5, 68, 68, null, col); text(c, 37, 24, "NO.", font("px", 8), col, "mm"); text(c, 37, 46, num, font("dot", 26, 900), col, "mm"); return cv; }
+function disc(label, accent) {
+  const cv = mk(96, 96), c = ctx(cv); ellipse(c, 0, 0, 95, 95, VOID, INK);
+  for (const r of [40, 34, 28]) ellipse(c, 48 - r, 48 - r, 48 + r, 48 + r, null, [80, 80, 78]);
+  ellipse(c, 38, 38, 58, 58, null, accent, 2); text(c, 48, 72, label[0], font("px", 7), INK, "mm"); text(c, 48, 81, label[1], font("px", 7), INK, "mm"); return cv;
+}
+function jpLabel(kanji, word) {
+  const fj = font("jp", 26), w = Math.floor(Math.max(textW(fj, kanji), textW(font("px", 8), word.toUpperCase())) + 22), h = 70, cv = mk(w, h), c = ctx(cv);
+  rect(c, 0, 0, w - 1, h - 1, VOID, INK, 2); text(c, w / 2, 26, kanji, fj, INK, "mm");
+  rect(c, 2, h - 22, w - 3, h - 3, INK); text(c, w / 2, h - 12, word.toUpperCase(), font("px", 8), VOID, "mm"); return cv;
+}
+function checkerStrip(w = 120, h = 16, col = INK) { const cv = mk(w, h), c = ctx(cv), s = h / 2 | 0; for (let i = 0; i < w; i += s) for (let j = 0; j < 2; j++) if (((i / s | 0) + j) % 2 === 0) rect(c, i, j * s, i + s - 1, j * s + s - 1, col); rect(c, 0, 0, w - 1, h - 1, null, col); return cv; }
+function arrowStk(word, arrow) {
+  const f = font("px", 10), w = Math.floor(textW(f, word.toUpperCase()) + 44), h = 30, cv = mk(w, h), c = ctx(cv);
+  rect(c, 0, 0, w - 1, h - 1, VOID, INK); rect(c, w - 30, 0, w - 1, h - 1, INK);
+  text(c, 8, h / 2, word.toUpperCase(), f, INK, "lm"); text(c, w - 15, h / 2, arrow, font("jp", 18), VOID, "mm"); return cv;
+}
+function barStk(num) { const cv = mk(130, 34), c = ctx(cv); rect(c, 0, 0, 129, 33, VOID, INK); bars(c, 6, 4, 118, 16, INK, num); text(c, 65, 27, num, font("px", 8), INK, "mm"); return cv; }
+function miniFigure(shape, t, accent, size = 120) {
+  const cv = mk(size, size), c = ctx(cv);
+  ellipse(c, 0, 0, size - 1, size - 1, VOID);
+  c.save(); c.beginPath(); c.ellipse(size / 2, size / 2, size / 2 - 2, size / 2 - 2, 0, 0, TAU); c.clip();
+  c.scale(0.5, 0.5); renderShape(c, shape, t, accent, size * 2, size * 2, 2, size * 0.8); c.restore();   // Pillow: width round(1.6) = 2 at 2x, then halved
+  ellipse(c, 0, 0, size - 1, size - 1, null, INK); return cv;
+}
+function vinyl(content, round, padd = 6, rot = 0) {
+  const w = content.width, h = content.height, Wd = w + padd * 2, Hd = h + padd * 2;
+  let base = mk(Wd, Hd); const b = ctx(base);
+  if (round) ellipse(b, 0, 0, Wd - 1, Hd - 1, [8, 8, 8]); else rrect(b, 0, 0, Wd - 1, Hd - 1, 7, [8, 8, 8]);
+  b.drawImage(content, padd, padd);
+  base = rotated(base, rot);
+  const sh = mk(base.width + 24, base.height + 24), s = ctx(sh);
+  const blk = mk(base.width, base.height), k = ctx(blk); k.drawImage(base, 0, 0); k.globalCompositeOperation = "source-in"; k.fillStyle = "rgba(0,0,0,.65)"; k.fillRect(0, 0, blk.width, blk.height);
+  s.filter = "blur(5px)"; s.drawImage(blk, 14, 16); s.filter = "none"; s.drawImage(base, 12, 12);
+  return sh;
+}
+
+// ---------- the 16 cover patterns ----------
+const grey = (v, a = 255) => { v = Math.max(0, Math.min(255, v | 0)); return [v, v, v, a]; };
+function tile(Wd, Hd, s, bg, draw, rot = 0) {
+  const t = mk(s, s), tc = ctx(t); rect(tc, 0, 0, s - 1, s - 1, grey(bg)); draw(tc, s);
+  const big = mk(Wd * 2, Hd * 2), bc = ctx(big);
+  for (let y = 0; y < Hd * 2; y += s) for (let x = 0; x < Wd * 2; x += s) bc.drawImage(t, x, y);
+  let src = big;
+  if (rot) { const r = mk(Wd * 2, Hd * 2), rc = ctx(r); rect(rc, 0, 0, Wd * 2 - 1, Hd * 2 - 1, VOID); rc.translate(Wd, Hd); rc.rotate(-rot); rc.drawImage(big, -Wd, -Hd); src = r; }
+  return crop(src, [Wd / 2 | 0, Hd / 2 | 0, (Wd / 2 | 0) + Wd, (Hd / 2 | 0) + Hd]);
+}
+const PATTERNS = {
+  perforated(Wd, Hd) {
+    const cv = mk(Wd, Hd), c = ctx(cv); rect(c, 0, 0, Wd - 1, Hd - 1, grey(66)); const s = 22; let row = 0, y = s / 2;
+    while (y < Hd) { let x = row % 2 ? s : s / 2; while (x < Wd) { ellipse(c, x - 6, y - 6, x + 6, y + 6, grey(10)); c.beginPath(); c.ellipse(x + 0.5, y + 1.5, 6, 6, 0, 18 * Math.PI / 180, 162 * Math.PI / 180); c.closePath(); c.fillStyle = css(grey(110, 150)); c.fill(); x += s; } y += s; row++; }
+    return cv;
+  },
+  carbon(Wd, Hd) {
+    const cv = mk(Wd, Hd), c = ctx(cv); rect(c, 0, 0, Wd - 1, Hd - 1, grey(20)); const s = 16;
+    for (let y = 0; y < Hd; y += s) for (let x = 0; x < Wd; x += s) {
+      const horiz = ((x + y) / s | 0) % 2;
+      for (let i = 0; i < s - 2; i++) { const v = 28 + 42 * (1 - Math.abs((i / (s - 3)) * 2 - 1)); if (horiz) line(c, [[x + 1 + i, y + 1], [x + 1 + i, y + s - 2]], grey(v)); else line(c, [[x + 1, y + 1 + i], [x + s - 2, y + 1 + i]], grey(v)); }
+    }
+    return cv;
+  },
+  stripes: (Wd, Hd) => tile(Wd, Hd, 28, 46, (k, s) => rect(k, 0, 0, s / 2, s, grey(66)), Math.PI / 4),
+  hazard: (Wd, Hd) => tile(Wd, Hd, 64, 36, (k, s) => rect(k, 0, 0, s / 2, s, grey(78)), -Math.PI / 4),
+  pinstripe: (Wd, Hd) => tile(Wd, Hd, 12, 40, (k, s) => rect(k, 0, 0, 1, s, grey(72))),
+  crosses: (Wd, Hd) => tile(Wd, Hd, 36, 42, (k, s) => { rect(k, s / 2 - 1.5, s / 2 - 9, s / 2 + 1.5, s / 2 + 9, grey(96)); rect(k, s / 2 - 9, s / 2 - 1.5, s / 2 + 9, s / 2 + 1.5, grey(96)); }),
+  xmarks: (Wd, Hd) => tile(Wd, Hd, 56, 50, (k, s) => { for (const [x, y] of [[s / 4, s / 4], [s * 3 / 4, s * 3 / 4]]) { line(k, [[x - 7, y - 7], [x + 7, y + 7]], grey(90), 3); line(k, [[x + 7, y - 7], [x - 7, y + 7]], grey(90), 3); } }),
+  grid: (Wd, Hd) => tile(Wd, Hd, 40, 30, (k, s) => { rect(k, 0, 0, s, 1, grey(56)); rect(k, 0, 0, 1, s, grey(56)); rect(k, 0, 0, 2, 2, grey(120)); }),
+  checker: (Wd, Hd) => tile(Wd, Hd, 48, 38, (k, s) => { rect(k, 0, 0, s / 2 - 1, s / 2 - 1, grey(60)); rect(k, s / 2, s / 2, s - 1, s - 1, grey(60)); }),
+  dots: (Wd, Hd) => tile(Wd, Hd, 20, 34, (k, s) => { for (const [x, y] of [[s / 4, s / 4], [s * 3 / 4, s * 3 / 4]]) ellipse(k, x - 2.6, y - 2.6, x + 2.6, y + 2.6, grey(86)); }),
+  chevrons: (Wd, Hd) => tile(Wd, Hd, 40, 44, (k, s) => { for (const y of [s * 0.25, s * 0.75]) line(k, [[-2, y + 10], [s / 2, y - 6], [s + 2, y + 10]], grey(78), 5); }),
+  zigzag: (Wd, Hd) => tile(Wd, Hd, 32, 52, (k, s) => line(k, [[0, s * 0.7], [s / 2, s * 0.3], [s, s * 0.7]], grey(30), 3)),
+  diamonds: (Wd, Hd) => tile(Wd, Hd, 36, 40, (k, s) => { poly(k, [[s / 2, 4], [s - 4, s / 2], [s / 2, s - 4], [4, s / 2]], null, grey(80)); rect(k, s / 2 - 2, s / 2 - 2, s / 2 + 2, s / 2 + 2, grey(80)); }),
+  waves: (Wd, Hd) => tile(Wd, Hd, 48, 40, (k, s) => { for (const y0 of [s * 0.25, s * 0.75]) { const pts = []; for (let x = 0; x <= s; x += 2) pts.push([x, y0 + Math.sin(x / s * Math.PI * 2) * 5]); line(k, pts, grey(76), 3); } }),
+  rings: (Wd, Hd) => tile(Wd, Hd, 44, 34, (k, s) => { for (const R of [8, 15]) ellipse(k, s / 2 - R, s / 2 - R, s / 2 + R, s / 2 + R, null, grey(74), 2); }),
+  triangles: (Wd, Hd) => tile(Wd, Hd, 40, 36, (k, s) => { poly(k, [[s / 4, s / 2 - 8], [s / 4 + 9, s / 2 + 7], [s / 4 - 9, s / 2 + 7]], grey(64)); poly(k, [[s * 3 / 4, s / 2 + 8], [s * 3 / 4 + 9, s / 2 - 7], [s * 3 / 4 - 9, s / 2 - 7]], null, grey(64)); }),
+};
+const PATTERN_LIST = Object.keys(PATTERNS);
+const pattern = (name, Wd, Hd) => (PATTERNS[name] || PATTERNS.carbon)(Wd, Hd);
+
+// ---------- gen.py: the pictures of the theme ----------
+function figureFor(cfg, coll) { let f = cfg.figures[coll] || DEFAULT_FIG[coll]; if (!SHAPES[f]) f = SHAPE_LIST[rng(coll + "fig").randrange(SHAPE_LIST.length)]; return f; }
+function patternFor(cfg, game) { let p = cfg.patterns[game]; if (!PATTERNS[p]) p = PATTERN_LIST[rng(game + "surface").randrange(PATTERN_LIST.length)]; return p; }
+
+function sysBase() {
+  const cv = mk(W, H), c = ctx(cv); rect(c, 0, 0, W - 1, H - 1, VOID);
+  for (const [x, y, dx, dy] of [[24, 24, 1, 1], [W - 24, 24, -1, 1], [24, H - 24, 1, -1], [W - 24, H - 24, -1, -1]]) line(c, [[x, y + 10 * dy], [x, y], [x + 10 * dx, y]], [255, 255, 255, 64]);
+  text(c, 44, 46, "ESCAPE/UI", font("px", 16), DIM, "lm");
+  return cv;
+}
+// the figure as the card shows it: lines dimmed to 62 % (the still is the video's first frame, t = 0)
+function figFrame(c, fig, t, accent) { renderShape(c, fig, t, accent, HERO[2], HERO[3], FIG_LW, null, 0.62); }
+
+function sysOver(coll, games, level, accent, idx, total, fig = "globe") {
+  const cv = mk(W, H); let c = ctx(cv);
+  const generic = !coll, r = rng((coll || "new") + "stk"), pick = a => r.choice(a), acc = accent;
+  const x0 = 44, y0 = 120;
+  if (!generic) { text(c, x0, y0, pad2(idx), font("px", 12), INK, "lm"); text(c, x0 + 26, y0, "/ " + pad2(total), font("px", 12), DIM, "lm"); }
+  if (level >= 2) stripes(c, x0 + 78, y0 - 5, 30, 10, INK);
+  const n = coll.toUpperCase(), size = n.length <= 5 ? 76 : n.length <= 8 ? 54 : 38;
+  if (!generic) text(c, x0 - 4, y0 + 30, n, font("dot", size, 900), INK, "lt");
+  const yk = y0 + 30 + Math.floor(size * 0.95) + 18;
+  const w0 = pill(c, x0, yk, "collection", true);
+  if (!generic) pill(c, x0 + w0 + 8, yk, games.length + " items");
+  const blurb = BLURB[n] || "Your own collection. Add games from a game's options.";
+  const fb = font("grot", 15, 300); let yb = yk + 40, ln = "";
+  for (const word of blurb.split(/\s+/)) {
+    if (textLen(fb, ln + " " + word) > 330 && ln) { text(c, x0, yb, ln, fb, [189, 189, 185]); yb += 22; ln = word; } else ln = (ln + " " + word).trim();
+  }
+  text(c, x0, yb, ln, fb, [189, 189, 185]);
+  const ys = yb + 46;
+  text(c, x0, ys, "FOLDER", font("px", 12), DIM, "lm"); text(c, x0 + 96, ys, "/collections/" + (coll || "new"), font("grot", 16, 400), INK, "lm");
+  const hx = HERO[0] + HERO[2] / 2, hy = HERO[1] + HERO[3] / 2;
+  const lab = generic ? "" : coll.toLowerCase(), ls = lab ? (lab.length <= 5 ? 128 : Math.max(44, Math.floor(128 * 5 / lab.length))) : 128, fl = font("dot", ls, 900);
+  if (lab) {
+    const sh = mk(W, H), s = ctx(sh); text(s, hx, hy, lab, fl, VOID, "mm");
+    for (const b of [12, 4]) { c.filter = `blur(${b}px)`; c.drawImage(sh, 0, 0); } c.filter = "none";
+    text(c, hx, hy, lab, fl, INK, "mm");
+    const lw = textLen(fl, lab); text(c, hx + lw / 2 + 2, hy, ".", fl, acc, "lm");
+  }
+  if (level >= 1) {
+    text(c, HERO[0] + HERO[2] - 4, HERO[1] + 8, "ESC." + pad2(idx), font("px", 12), DIM, "rt");
+    text(c, HERO[0] + HERO[2] - 4, HERO[1] + 28, (SHAPE_NAMES[fig] || "figure").toUpperCase(), font("px", 12), DIM, "rt");
+  }
+  const right = r.random() < 0.5, pct = (a, b, span) => a / 100 * span + r.random() * (b - a) / 100 * span;
+  if (level >= 2) {
+    const px = HERO[0] + (right ? 20 : HERO[2] - 220), py = HERO[1] + pct(30, 44, HERO[3]);
+    let w = pill(c, px, py, pick(PILLS));
+    if (r.random() < 0.6) w += 6 + pill(c, px + w + 6, py, pick(PILLS), true);
+    text(c, px + w + 10, py + 9, pick(CHEVS), font("px", 12), acc, "lm");
+  }
+  if (level >= 3) {
+    const cnt = 3 + Math.floor(r.random() * 3);
+    for (let i = 0; i < cnt; i++) {
+      const sx = HERO[0] + (r.random() < .5 ? pct(8, 30, HERO[2]) : pct(70, 92, HERO[2])), sy = HERO[1] + pct(10, 88, HERO[3]);
+      if (i < 3 || level >= 5) sparkle(c, sx, sy, 6 + r.random() * 5);
+    }
+    const kx = HERO[0] + (right ? HERO[2] - 4 : 4), ky = HERO[1] + pct(14, 30, HERO[3]), more = pick(MORE_KATA);
+    vtext(c, kx, ky, KATA[n] || more, font("jp", 13), [255, 255, 255, 90]);
+  }
+  if (level >= 4) {
+    const by = HERO[1] + HERO[3] - 30;
+    warnTri(c, HERO[0] + 6, by - 4); const xa = r.randrange(999), ya = r.randrange(999);
+    text(c, HERO[0] + 36, by + 6, `X ${String(xa).padStart(3, "0")} Y ${String(ya).padStart(3, "0")}`, font("px", 12), DIM, "lm");
+    bars(c, HERO[0] + HERO[2] - 150, by, 64, 14, INK, r.randrange(1 << 30)); text(c, HERO[0] + HERO[2] - 78, by + 7, "® " + coll.toLowerCase(), font("px", 12), DIM, "lm");
+    for (const cx of [HERO[0] + HERO[2] * 0.06, HERO[0] + HERO[2] * 0.94]) { const cy = HERO[1] + pct(40, 60, HERO[3]); line(c, [[cx - 6, cy], [cx + 6, cy]], INK); line(c, [[cx, cy - 6], [cx, cy + 6]], INK); }
+    const extra = r.randrange(4), ex = Math.floor(HERO[0] + pct(28, 56, HERO[2])), ey = Math.floor(HERO[1] + pct(2, 8, HERO[3]));
+    const all = [badge(pad2(r.randrange(99)))]; all.push(arrowStk(pick(["enter", "go", "next", "open"]), pick(["→", "»", "↗"]))); all.push(checkerStrip()); all.push(barStk(String(r.randrange(1e8)).padStart(8, "0")));
+    c.drawImage(rotated(all[extra], r.random() * 10 - 5), ex, ey);
+  }
+  if (level >= 5) {
+    const kind = r.randrange(3), stp = rotated(stamp(kind, pick(STAMPS), acc), r.random() * 12 - 6);
+    const sx = HERO[0] + (right ? HERO[2] - stp.width - 22 : 22), sy = Math.floor(HERO[1] + pct(66, 76, HERO[3]));
+    c.drawImage(stp, Math.floor(sx), sy);
+    const kx = HERO[0] + (right ? 8 : HERO[2] - 40), ky = HERO[1] + pct(10, 24, HERO[3]), more = pick(MORE_KANJI);
+    vtext(c, kx + 16, ky, KANJI[n] || more, font("jp", 30), [255, 255, 255, 60], 2);
+    if (r.random() < 0.6) { const hb = hazardBand(HERO[2], 12, acc); c.drawImage(hb, HERO[0], HERO[1] + (r.random() < .5 ? HERO[3] - 40 : 30)); }
+    let e5 = r.random() < .5 ? disc(["DIGITAL", coll.toUpperCase()], acc) : jpLabel(pick(["注意", "危険", "再生", "停止", "高速"]), pick(["handle", "keep dry", "live", "do not bend"]));
+    e5 = rotated(e5, r.random() * 12 - 6);
+    c.drawImage(e5, Math.floor(HERO[0] + (right ? 30 : HERO[2] - e5.width - 30)), Math.floor(HERO[1] + pct(64, 74, HERO[3])) - 60);
+  }
+  return cv;
+}
+function sysKey(coll, fig, accent) {
+  const f = font("px", 24); let name = coll.toUpperCase();
+  while (textLen(f, name) > 180 && name.length > 4) name = name.slice(0, -2) + "…";
+  const cv = mk(260, 72), c = ctx(cv), x0 = Math.floor((260 - (64 + 10 + textLen(f, name))) / 2);
+  const em = mk(144, 144); renderShape(ctx(em), fig, 0.6, accent, 144, 144, 1.6, 52);
+  c.drawImage(em, x0, 4, 64, 64); text(c, x0 + 74, 36, name, f, INK, "lm");
+  return cv;
+}
+function listHead(coll, n) {
+  const cv = mk(460, 64), c = ctx(cv), f = font("dot", 44, 900);
+  text(c, 0, 6, coll.toUpperCase(), f, INK, "lt");
+  text(c, textLen(f, coll.toUpperCase()) + 16, 36, `${n} ITEMS · FAV, A–Z`, font("px", 12), DIM, "lm");
+  return cv;
+}
+// the game's own picture as a Polaroid stuck on the sheet: white paper, the photo cropped to fit,
+// a caption in the bottom margin and a strip of tape; paper has no black backing, only a shadow
+function polaroid(photo, caption) {
+  const pw = 116, ar = photo.height / photo.width, ph = Math.max(88, Math.min(140, Math.round(pw * ar))), fw = pw + 16, fh = ph + 8 + 30;
+  const cv = mk(fw, fh + 8), c = ctx(cv), top = 8;
+  rect(c, 0, top, fw - 1, top + fh - 1, [242, 242, 238]);
+  const s = Math.max(pw / photo.width, ph / photo.height), sw = pw / s, sh = ph / s;   // cover-crop, centred
+  c.imageSmoothingQuality = "high"; c.drawImage(photo, (photo.width - sw) / 2, (photo.height - sh) / 2, sw, sh, 8, top + 8, pw, ph);
+  rect(c, 8, top + 8, 8 + pw - 1, top + 8 + ph - 1, null, [0, 0, 0, 40]);
+  let cap = caption; const f = font("grot", 11, 500); while (textLen(f, cap) > pw && cap.length > 3) cap = cap.slice(0, -2) + "…";
+  text(c, fw / 2, top + 8 + ph + 15, cap, f, [44, 44, 42], "mm");
+  c.save(); c.translate(fw / 2, top + 1); c.rotate(-0.12); c.fillStyle = "rgba(235,235,225,.55)"; c.fillRect(-24, -7, 48, 14); c.restore();   // tape
+  return cv;
+}
+// no picture: the name as a die-cut logo sticker, with an accent bar under it
+function logoSticker(name, accent) {
+  let size = 30; const n = name.toUpperCase(); let f = font("dot", size, 900);
+  while (textLen(f, n) > 210 && size > 14) { size -= 2; f = font("dot", size, 900); }
+  const w = Math.ceil(textLen(f, n)) + 20, h = size + 30, cv = mk(w, h), c = ctx(cv);
+  text(c, 10, 8, n, f, INK, "lt"); rect(c, 10, h - 14, Math.min(w - 11, 10 + 46), h - 11, accent);
+  text(c, w - 10, h - 12, "NO COVER", font("px", 7), DIM, "rm");
+  return cv;
+}
+function paper(content, rot) {   // a sticker without the black film: just the shadow
+  const base = rotated(content, rot), sh = mk(base.width + 24, base.height + 24), s = ctx(sh);
+  const blk = mk(base.width, base.height), k = ctx(blk); k.drawImage(base, 0, 0); k.globalCompositeOperation = "source-in"; k.fillStyle = "rgba(0,0,0,.6)"; k.fillRect(0, 0, blk.width, blk.height);
+  s.filter = "blur(5px)"; s.drawImage(blk, 14, 16); s.filter = "none"; s.drawImage(base, 12, 12);
+  return sh;
+}
+// what goes on the sheet as the game's own sticker: covers[game] = auto | original | custom | logo | none
+function frontSticker(game, accent, cfg, photos) {
+  const mode = (cfg.covers || {})[game] || "auto", own = photos.custom[game], orig = photos.original[game];
+  if (mode === "none") return null;
+  if (mode === "custom" && own) return ["paper", polaroid(own, game)];
+  if ((mode === "auto" || mode === "original") && orig) return ["paper", polaroid(orig, game)];
+  if (mode === "auto" && own) return ["paper", polaroid(own, game)];
+  return ["vinyl", logoSticker(game, accent)];
+}
+function cover(game, level, accent, cfg, idx = 0, photos = null) {
+  const CW = 440, CH = 264, surf = patternFor(cfg, game);
+  const cv = mk(CW, CH), c = ctx(cv); c.imageSmoothingQuality = "high"; c.drawImage(pattern(surf, CW * 2, CH * 2), 0, 0, CW, CH);
+  const r = rng(game + "sheet"), pick = a => r.choice(a), acc = accent, pool = [], add = (lvl, img, round = false) => pool.push([lvl, img, round]);
+  add(1, miniFigure(pick(SHAPE_LIST), r.random() * 6, acc, 110), true);
+  { const num = mk(150, 70); text(ctx(num), 75, 35, pad2(idx + 1), font("dot", 64, 900), INK, "mm"); add(1, num); }
+  { const pl = mk(200, 22), dp = ctx(pl), w = pill(dp, 1, 2, pick(PILLS)); pill(dp, w + 7, 2, pick(PILLS), true); add(2, crop(pl, bbox(pl))); }
+  { const word = pick(["play", "go", "next", "run", "load"]), arr = pick(["→", "↗", "»", "↘"]); add(2, arrowStk(word, arr)); }
+  { const ch = mk(70, 22); text(ctx(ch), 35, 11, pick(CHEVS), font("px", 14), acc, "mm"); add(2, ch); }
+  { const kt = mk(34, 130); vtext(ctx(kt), 17, 4, pick(MORE_KATA), font("jp", 16), INK, 2); add(3, crop(kt, bbox(kt))); }
+  { const sp = mk(60, 40), ds = ctx(sp); sparkle(ds, 18, 20, 14); sparkle(ds, 44, 14, 7); add(3, sp); }
+  add(3, badge(pad2(r.randrange(99))), true);
+  add(4, barStk(String(r.randrange(1e8)).padStart(8, "0")));
+  { const wt = mk(130, 24), dw = ctx(wt); warnTri(dw, 0, 2); text(dw, 30, 12, pick(["caution", "hot", "loud", "fragile", "beta"]).toUpperCase(), font("px", 9), INK, "lm"); add(4, crop(wt, bbox(wt))); }
+  add(4, checkerStrip()); add(4, stripesLayer(46, 18, INK));
+  { const kind = r.randrange(3), words = pick(STAMPS), st = stamp(kind, words, acc); add(5, st, r.random() < 0); }
+  add(5, disc(["DIGITAL", "ESCAPE"], acc), true);
+  { const k = pick(MORE_KANJI), wd = pick(["handle", "keep dry", "do not bend", "live"]); add(5, jpLabel(k, wd)); }
+  const pool2 = pool.filter(p => p[0] <= Math.max(1, level)); r.shuffle(pool2);
+  let want = [0, 2, 4, 6, 9, 14][level];
+  // the game's own picture (or its logo) goes on first, so it always finds room; level 0 = pattern only
+  const front = level >= 1 && photos ? frontSticker(game, acc, cfg, photos) : null;
+  if (front) { pool2.unshift([0, front[1], false, front[0]]); want += 1; }
+  const placed = []; let n = 0;
+  for (const [, img, rnd, kind] of pool2) {
+    if (n >= want) break;
+    const st = kind === "paper" ? paper(img, r.random() * 16 - 8) : vinyl(img, rnd, 6, r.random() * 14 - 7);
+    if (st.width >= CW - 8 || st.height >= CH - 8) continue;
+    for (let k = 0; k < 40; k++) {
+      const x = 4 + r.random() * (CW - st.width - 8), y = 4 + r.random() * (CH - st.height - 8);
+      if (placed.some(([px, py, pw, ph]) => x < px + pw - 4 && x + st.width - 4 > px && y < py + ph - 4 && y + st.height - 4 > py)) continue;
+      placed.push([x, y, st.width, st.height]); c.drawImage(st, Math.floor(x), Math.floor(y)); n++; break;
+    }
+  }
+  const tag = "PATTERN · " + surf.toUpperCase(), fw = font("px", 8), tw = textLen(fw, tag);
+  rect(c, CW - tw - 16, CH - 20, CW - 6, CH - 6, VOID); text(c, CW - 11, CH - 13, tag, fw, DIM, "rm");
+  return cv;
+}
+function bootScreen(logo, accent) {
+  const cv = mk(W, H), c = ctx(cv); rect(c, 0, 0, W - 1, H - 1, VOID);
+  renderShape(c, logo, 0.6, accent, 400, 400, 0.7, null, 1, W / 2 - 200, 130);
+  const f = font("dot", 36, 900); textSpaced(c, W / 2 - textW(f, "ESCAPE/UI", 10) / 2, 560, "ESCAPE/UI", f, INK, "lm", 10);
+  text(c, W / 2, 604, "エスケープ", font("jp", 14), DIM, "mm");
+  return cv;
+}
+// the glitch the videos open with (gen.glitch_frame), applied to the live canvas
+function glitchFrame(src, k, rnd, N = 15) {
+  const s = 1 - k / N, w = src.width, h = src.height, out = mk(w, h), o = ctx(out);
+  if (k === 0 || k === 3 || k === 7 || (k < 10 && rnd.random() < 0.15)) return out;
+  let cur = src;
+  if (rnd.random() < 0.8 * s) { const f = 2 + Math.floor(rnd.random() * 10 * s), sm = mk(Math.max(1, w / f | 0), Math.max(1, h / f | 0)), sc = ctx(sm); sc.imageSmoothingEnabled = false; sc.drawImage(src, 0, 0, sm.width, sm.height); const bl = mk(w, h), bc = ctx(bl); bc.imageSmoothingEnabled = false; bc.drawImage(sm, 0, 0, w, h); cur = bl; }
+  const bands = mk(w, h), b = ctx(bands); let y = 0;
+  while (y < h) { const bh = Math.floor(4 + rnd.random() * 46), dx = rnd.random() < 0.7 ? Math.floor((rnd.random() * 2 - 1) * 90 * s) : 0; b.drawImage(cur, 0, y, w, Math.min(bh, h - y), dx, y, w, Math.min(bh, h - y)); y += bh; }
+  const sh = Math.floor(3 + 10 * s), dim = 0.45 + 0.55 * (1 - s) + rnd.random() * 0.2;
+  o.globalCompositeOperation = "lighter";
+  for (const [dx, col] of [[sh, "#f00"], [0, "#0f0"], [-sh, "#00f"]]) { const ch = mk(w, h), cc = ctx(ch); cc.drawImage(bands, dx, 0); cc.globalCompositeOperation = "multiply"; cc.fillStyle = col; cc.fillRect(0, 0, w, h); cc.globalCompositeOperation = "destination-in"; cc.drawImage(bands, dx, 0); o.drawImage(ch, 0, 0); }
+  o.globalCompositeOperation = "source-over"; o.fillStyle = `rgba(0,0,0,${Math.max(0, 1 - Math.min(1, dim))})`; o.fillRect(0, 0, w, h);
+  return out;
+}
+
+// ---------- the Brick, screen by screen (layout numbers come from theme.xml, × 1024 / × 768) ----------
+const $ = id => document.getElementById(id);
+const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
+const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private window */ } };
+
+// state = what es_settings.cfg and config.json hold on the Brick
+const S = Object.assign({ accent: DEVICE.accent || "white", detail: "3", covers: "3", motion: "video", ca: "off", lowbatt: "on", charge: "on" }, load("escui31-subsets", {}));
+const CFG = Object.assign({ boot_logo: "globe", figures: {}, patterns: {}, covers: {} }, DEVICE.cfg, load("escui31-cfg", {}));
+CFG.covers = CFG.covers || {};
+CFG.figures = Object.assign({}, DEVICE.cfg.figures, CFG.figures); CFG.patterns = Object.assign({}, DEVICE.cfg.patterns, CFG.patterns);
+const persist = () => { save("escui31-subsets", S); save("escui31-cfg", { boot_logo: CFG.boot_logo, figures: CFG.figures, patterns: CFG.patterns, covers: CFG.covers }); };
+// the games' own pictures: what the Brick has scraped (ORIGINAL) and the ones you add (kept in this browser)
+const PHOTOS = { original: {}, custom: {} };
+const CUSTOM = load("escui31-custom", {});
+const loadImg = src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+// EscapeUI has no box art: its picture is the theme's own boot figure
+function escapeUiPhoto() { const cv = mk(220, 220), c = ctx(cv); rect(c, 0, 0, 219, 219, VOID); renderShape(c, CFG.boot_logo, 0.6, acc(), 220, 220, 1.4, 80); return cv; }
+const photosReady = Promise.all([
+  ...Object.entries(ORIGINAL).map(([g, u]) => loadImg(u).then(i => { if (i) PHOTOS.original[g] = i; })),
+  ...Object.entries(CUSTOM).map(([g, u]) => loadImg(u).then(i => { if (i) PHOTOS.custom[g] = i; }))]);
+const acc = () => ACCENT_RGB[S.accent];
+const batt = { lvl: 87, chg: false };
+
+// collections as the Brick has them: favourites first, then a–z; ES adds [system] in collections
+const INFO = DEVICE.info;
+const COLLS = Object.keys(DEVICE.colls).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+const gamesOf = c => [...new Set(DEVICE.colls[c])].sort((a, b) => ((INFO[b] || {}).fav ? 1 : 0) - ((INFO[a] || {}).fav ? 1 : 0) || a.toLowerCase().localeCompare(b.toLowerCase()));
+const ALL_GAMES = [...new Set(COLLS.flatMap(c => DEVICE.colls[c]))].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+// ---------- picture cache: the theme's generated images, drawn on demand like gen.py would ----------
+const cache = new Map();
+const pic = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
+const overKey = (c, L) => `over|${c}|${L}|${S.accent}|${figureFor(CFG, c)}`;
+const overOf = (c, L) => pic(overKey(c, L), () => sysOver(c, DEVICE.colls[c], L, acc(), COLLS.indexOf(c) + 1, COLLS.length, figureFor(CFG, c)));
+const keyOf = c => pic(`key|${c}|${S.accent}|${figureFor(CFG, c)}`, () => sysKey(c, figureFor(CFG, c), acc()));
+const headOf = c => pic(`head|${c}`, () => listHead(c, DEVICE.colls[c].length));
+const coverOf = (g, L) => pic(`cov|${g}|${L}|${S.accent}|${patternFor(CFG, g)}|${CFG.covers[g] || "auto"}|${PHOTOS.custom[g] ? 1 : 0}`, () => cover(g, L, acc(), CFG, ALL_GAMES.indexOf(g), PHOTOS));
+const baseOf = () => pic("base", sysBase);
+
+// ---------- screens ----------
+let screen = "sys", ci = 0, gi = 0, gtop = 0;
+const SCREENS = ["s-boot", "s-sys", "s-list", "s-menu", "s-app", "s-charge"];
+function show(s) {
+  screen = s;
+  for (const id of SCREENS) $(id).hidden = !(id === "s-" + s || (s === "menu" && id === "s-" + under) || (s === "app" && false));
+  document.querySelectorAll("[data-go]").forEach(b => b.setAttribute("aria-pressed", b.dataset.go === s || (s === "menu" && b.dataset.go === "menu")));
+  render();
+}
+let under = "sys";   // the view under ES's menu
+
+function render() {
+  $("stage").classList.toggle("ca", S.ca === "always");
+  if (screen === "boot") { const b = $("boot"); ctx(b).drawImage(pic(`boot|${CFG.boot_logo}|${S.accent}`, () => bootScreen(CFG.boot_logo, acc())), 0, 0); }
+  if (screen === "sys" || (screen === "menu" && under === "sys")) renderSys();
+  if (screen === "list" || (screen === "menu" && under === "list")) renderList();
+  if (screen === "menu") renderMenu();
+  if (screen === "app") renderApp();
+  renderHelp(); renderFx();
+}
+
+// system view: base, the figure (video / light / still), the over image of the detail level, ES's carousel
+let figStart = performance.now(), glitchRnd = null;
+function renderSys() {
+  const c = COLLS[ci];
+  ctx($("base")).drawImage(baseOf(), 0, 0);
+  const o = $("over"), oc = ctx(o); oc.clearRect(0, 0, W, H); oc.drawImage(overOf(c, lvl(S.detail)), 0, 0);
+  const still = $("fig"), sc = ctx(still); sc.clearRect(0, 0, HERO[2], HERO[3]);
+  if (lvl(S.detail) !== 0) figFrame(sc, figureFor(CFG, c), 0, acc());
+  $("fig").classList.toggle("light", S.motion === "light");
+  $("fig").hidden = lvl(S.detail) === 0 || S.motion === "video";
+  $("loop").hidden = lvl(S.detail) === 0 || S.motion !== "video";
+  // the carousel: three keys, the picked one in the middle, 1.08×; the others at ES's half opacity
+  const strip = $("strip"); strip.innerHTML = "";
+  [-1, 0, 1].forEach(d => {
+    const k = COLLS[(ci + d + COLLS.length) % COLLS.length], img = keyOf(k), el = document.createElement("canvas");
+    el.width = 260; el.height = 72; ctx(el).drawImage(img, 0, 0); el.className = "key" + (d === 0 ? " on" : "");
+    el.style.left = (44 + 312 * (d + 1) + 26) + "px"; strip.appendChild(el);
+  });
+}
+function startFigure() { figStart = performance.now(); glitchRnd = new PyRandom(figureFor(CFG, COLLS[ci]) + "glitch"); }
+const loopCanvas = mk(HERO[2], HERO[3]);
+function tick() {
+  requestAnimationFrame(tick);
+  if (!(screen === "sys" || (screen === "menu" && under === "sys")) || S.motion !== "video" || lvl(S.detail) === 0) return;
+  const fig = figureFor(CFG, COLLS[ci]), [span, sec] = LOOP[fig] || [TAU, 12];
+  const el = (performance.now() - figStart) / 1000, frame = Math.floor(el * 24);   // the videos are 24 fps
+  if (frame === tick.last && fig === tick.fig) return; tick.last = frame; tick.fig = fig;
+  const n = Math.max(2, Math.round(sec * 24)), t = span * (frame % n) / n, lc = ctx(loopCanvas);
+  lc.fillStyle = "#000"; lc.fillRect(0, 0, HERO[2], HERO[3]); figFrame(lc, fig, t, acc());
+  const out = $("loop"), c = ctx(out);
+  if (frame < 15 && glitchRnd) { c.clearRect(0, 0, HERO[2], HERO[3]); c.drawImage(glitchFrame(loopCanvas, frame, glitchRnd), 0, 0); }
+  else { c.clearRect(0, 0, HERO[2], HERO[3]); c.drawImage(loopCanvas, 0, 0); }
+}
+
+// game lists (the detailed view)
+function renderList() {
+  const c = COLLS[ci], games = gamesOf(c);
+  ctx($("base2")).drawImage(baseOf(), 0, 0);
+  const h = $("head"), hc = ctx(h); hc.clearRect(0, 0, 460, 64); hc.drawImage(headOf(c), 0, 0);
+  gi = Math.max(0, Math.min(gi, games.length - 1));
+  const vis = 14; if (gi < gtop) gtop = gi; if (gi >= gtop + vis) gtop = gi - vis + 1;
+  $("rows").innerHTML = games.slice(gtop, gtop + vis).map((g, i) => {
+    const inf = INFO[g] || {}, label = g + (inf.s ? ` [${inf.s}]` : "");
+    return `<div class="tl${gtop + i === gi ? " on" : ""}">${esc(label)}</div>`;
+  }).join("");
+  const g = games[gi], inf = INFO[g] || {};
+  const cv = ctx($("cover")); cv.drawImage(pic("blank", () => { const b = mk(440, 264), bc = ctx(b); bc.drawImage(pattern("carbon", 880, 528), 0, 0, 440, 264); rect(bc, 12, 230, 190, 252, VOID); text(bc, 20, 241, "NO SHEET YET · RUN ESCAPE-UI", font("px", 8), DIM, "lm"); return b; }), 0, 0);
+  cv.drawImage(coverOf(g, lvl(S.covers)), 0, 0);
+  $("md-name").textContent = g;
+  $("md-plays").textContent = inf.p > 0 ? inf.p : "—";
+  $("md-time").textContent = inf.h > 0 ? expandSeconds(inf.h) : "—";
+  $("md-last").textContent = inf.l ? inf.l.slice(6, 8) + "." + inf.l.slice(4, 6) : "";
+  $("md-desc").textContent = inf.d || "";
+}
+const esc = s => s.replace(/[&<>]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[ch]);
+function expandSeconds(s) { const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h} H ${m} MN` : m ? `${m} MN` : `${s} S`; }
+
+// ---------- ES's menu (main menu > user interface settings > theme configuration), as the Brick draws it ----------
+const lvl = v => (v === "default" || v === undefined || v === "") ? 3 : +v;   // "default" = the theme's 3, as on the Brick
+const OPTS = {
+  detail: { lb: "ESCAPE/UI · DETAIL LEVEL", ch: ["default", "0", "1", "2", "3", "4", "5"],
+            names: { default: "DEFAULT (3)", 0: "0 · TEXT ONLY", 1: "1 · FIGURE + HUD", 2: "2 · PILLS, CHEVRONS", 3: "3 · SPARKLES, KATAKANA", 4: "4 · WARNINGS, BARCODES", 5: "5 · EVERYTHING" } },
+  covers: { lb: "ESCAPE/UI · COVER STICKERS", ch: ["default", "0", "1", "2", "3", "4", "5"],
+            names: { default: "DEFAULT (3)", 0: "0 · PATTERN ONLY", 5: "5 · AS MANY AS FIT" } },
+  motion: { lb: "ESCAPE/UI · FIGURE MOTION", ch: ["video", "light", "still"] },
+  ca: { lb: "ESCAPE/UI · CHROMATIC ABERRATION", ch: ["off", "always"] },
+  lowbatt: { lb: "ESCAPE/UI · LOW BATTERY PULSE", ch: ["on", "off"] },
+  charge: { lb: "ESCAPE/UI · CHARGING SCREEN", ch: ["on", "off"] },
+  accent: { lb: "ESCAPE/UI · ACCENT COLOUR", ch: PALETTE.map(p => p[0]) },
+};
+const MENUS = {
+  main: { title: "MAIN MENU", foot: "KNULLI GLADIATOR-II 2025/08/12 23:34 [0]", rows: [
+    { lb: "GAME SETTINGS", arrow: 1 }, { lb: "CONTROLLER & BLUETOOTH SETTINGS", arrow: 1 }, { lb: "USER INTERFACE SETTINGS", open: "ui" },
+    { lb: "GAME COLLECTION SETTINGS", arrow: 1 }, { lb: "SOUND SETTINGS", arrow: 1 }, { lb: "NETWORK SETTINGS", arrow: 1 }, { lb: "SCRAPER", arrow: 1 },
+    { lb: "UPDATES & DOWNLOADS", arrow: 1 }, { lb: "DEVICE SETTINGS", arrow: 1 }, { lb: "SYSTEM SETTINGS", arrow: 1 }, { lb: "QUIT", arrow: 1 }] },
+  ui: { title: "USER INTERFACE SETTINGS", back: true, rows: [
+    { grp: "APPEARANCE" }, { lb: "THEME SET", val: () => "ES-THEME-ESCAPE-UI", lr: 1 }, { lb: "THEME CONFIGURATION", open: "theme" },
+    { grp: "DISPLAY OPTIONS" }, { lb: "SCREENSAVER SETTINGS", arrow: 1 }, { lb: "LIST TRANSITION", val: () => "AUTO", lr: 1 },
+    { lb: "GAME LAUNCH TRANSITION", val: () => "AUTO", lr: 1 }, { lb: "SHOW CLOCK", sw: true }, { lb: "ON-SCREEN HELP", sw: true },
+    { lb: "SHOW BATTERY STATUS", val: () => "ICON AND TEXT", lr: 1 }] },
+  theme: { title: "THEME CONFIGURATION", back: true, rows: [
+    { grp: "GAMELIST STYLE" }, { lb: "GAMELIST VIEW STYLE", val: () => "AUTOMATIC", lr: 1 }, { grp: "THEME OPTIONS" },
+    ...Object.keys(OPTS).map(k => ({ lb: OPTS[k].lb, opt: k })), { grp: "TOOLS" }, { lb: "RESET CUSTOMIZATIONS", act: () => { for (const k of Object.keys(OPTS)) S[k] = OPTS[k].ch[0]; S.accent = DEVICE.accent; persist(); } }] },
+};
+let mstack = [], mcur = 0;
+function openMenu(page) { if (screen !== "menu") under = screen; mstack.push(page); mcur = MENUS[page].rows.findIndex(r => !r.grp); show("menu"); }
+function renderMenu() {
+  const m = MENUS[mstack[mstack.length - 1]], el = $("menu"), rows = [];
+  m.rows.forEach((r, i) => {
+    if (r.grp) { rows.push(`<div class="mg">${r.grp}</div>`); return; }
+    let right = "";
+    if (r.opt) { const v = S[r.opt]; right = `<span class="mv"><i>◂</i>${((OPTS[r.opt].names || {})[v] || String(v).toUpperCase())}<i>▸</i></span>`; }
+    else if (r.val) right = `<span class="mv">${r.lr ? "<i>◂</i>" : ""}${r.val()}${r.lr ? "<i>▸</i>" : ""}</span>`;
+    else if (r.sw) right = `<span class="msw"></span>`;
+    else if (r.open || r.arrow) right = `<span class="ma">›</span>`;
+    rows.push(`<div class="mi${i === mcur ? " on" : ""}"><span>${r.lb}</span>${right}</div>`);
+  });
+  el.innerHTML = `<div class="mt">${m.title}</div><div class="mrows">${rows.join("")}</div>` +
+    (m.foot ? `<div class="mf">${m.foot}</div>` : "") + (m.back ? `<div class="mb"><span class="${mcur === m.rows.length ? "on" : ""}">BACK</span></div>` : "");
+}
+function menuKey(k) {
+  const m = MENUS[mstack[mstack.length - 1]], rows = m.rows, selectable = i => i === rows.length ? !!m.back : !rows[i].grp;
+  const step = d => { let i = mcur; do { i = (i + d + rows.length + 1) % (rows.length + 1); } while (!selectable(i)); mcur = i; };
+  if (k === "up") step(-1); else if (k === "down") step(1);
+  else if (k === "left" || k === "right") { const r = rows[mcur]; if (r && r.opt) { const o = OPTS[r.opt], i = o.ch.indexOf(S[r.opt]); S[r.opt] = o.ch[(i + (k === "left" ? -1 : 1) + o.ch.length) % o.ch.length]; persist(); applySettings(); } }
+  else if (k === "a") { const r = rows[mcur]; if (mcur === rows.length) return menuKey("b"); if (r.open) { mstack.push(r.open); mcur = MENUS[r.open].rows.findIndex(x => !x.grp); } else if (r.act) { r.act(); applySettings(); } }
+  else if (k === "b") { mstack.pop(); if (!mstack.length) { show(under); return; } mcur = 0; }
+  else if (k === "start") { mstack = []; show(under); return; }
+  render();
+}
+function applySettings() { syncHeader(); startFigure(); }
+
+// ---------- the escape-UI app (a port, full screen, pygame): tool/app.py ----------
+const APP = { page: "main", cur: 0, top: 0, armed: false };
+const MOTION_NAMES = { video: "animated", light: "light", still: "still" };
+function appRows() {
+  if (APP.page === "main") return [
+    ["Accent colour", ["chip", S.accent], d => cyc("accent", d), true],
+    ["Detail level", ["txt", lvl(S.detail) + " / 5"], d => cycNum("detail", d), false],
+    ["Cover stickers", ["txt", lvl(S.covers) + " / 5"], d => cycNum("covers", d), false],
+    ["Figure motion", ["txt", MOTION_NAMES[S.motion]], d => cyc("motion", d), true],
+    ["Boot logo", ["fig", CFG.boot_logo], d => { CFG.boot_logo = SHAPE_LIST[(SHAPE_LIST.indexOf(CFG.boot_logo) + d + SHAPE_LIST.length) % SHAPE_LIST.length]; }, false],
+    ["Chromatic aberration", ["txt", S.ca], d => cyc("ca", d), false],
+    ["Low battery pulse · ≤10%", ["txt", S.lowbatt], d => cyc("lowbatt", d), false],
+    ["Charging screen", ["txt", S.charge], d => cyc("charge", d), true],
+    ["Figures of collections", ["open", ""], () => { APP.page = "figs"; APP.cur = 0; APP.top = 0; }, false],
+    ["Patterns of covers", ["open", ""], () => { APP.page = "pats"; APP.cur = 0; APP.top = 0; }, false],
+    ["Covers of games", ["open", ""], () => { APP.page = "covs"; APP.cur = 0; APP.top = 0; }, false],
+    [APP.armed ? "A again: ~0 min, keep charging" : "Draw all colours · all 10 ready", ["open", ""], () => { APP.armed = false; }, false],
+    ["Save & exit", ["open", ""], () => leaveApp(), true],
+    ["Reset figures & patterns", ["danger", ""], d => { if (!d) { CFG.figures = {}; CFG.patterns = {}; } }, false]];
+  if (APP.page === "figs") return COLLS.map(c => [c, ["fig", figureFor(CFG, c)], d => { const L = SHAPE_LIST; CFG.figures[c] = L[(L.indexOf(figureFor(CFG, c)) + d + L.length) % L.length]; }, false])
+    .concat([["Reset figures", ["danger", ""], d => { if (!d) CFG.figures = {}; }, false]]);
+  if (APP.page === "covs") return ALL_GAMES.map(g => [g, ["cov", coverMode(g)], d => {
+      const L = coverModes(g); CFG.covers[g] = L[(L.indexOf(coverMode(g)) + d + L.length) % L.length]; }, false])
+    .concat([["Reset covers", ["danger", ""], d => { if (!d) CFG.covers = {}; }, false]]);
+  return ALL_GAMES.map(g => [g, ["pat", CFG.patterns[g] || "auto"], d => { const L = ["auto", ...PATTERN_LIST], cur = CFG.patterns[g] || "auto", nx = L[(L.indexOf(cur) + d + L.length) % L.length]; if (nx === "auto") delete CFG.patterns[g]; else CFG.patterns[g] = nx; }, false])
+    .concat([["Reset patterns", ["danger", ""], d => { if (!d) CFG.patterns = {}; }, false]]);
+}
+// a game's cover choices: its own picture, yours, its name as a logo sticker, or nothing
+const coverModes = g => [...(PHOTOS.original[g] ? ["original"] : []), ...(PHOTOS.custom[g] ? ["custom"] : []), "logo", "none"];
+const coverMode = g => { const m = CFG.covers[g] || "auto"; return m === "auto" ? (PHOTOS.original[g] ? "original" : PHOTOS.custom[g] ? "custom" : "logo") : m; };
+const COVER_NAMES = { original: "original", custom: "your own", logo: "logo", none: "none" };
+function addOwnCover(g) {   // on the Brick: a picture dropped into SHARE/escape-ui/covers/<game>.png
+  const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
+  inp.onchange = () => { const f = inp.files[0]; if (!f) return; const rd = new FileReader();
+    rd.onload = async () => { const im = await loadImg(rd.result); if (!im) return; const s = Math.min(1, 260 / Math.max(im.width, im.height)), cv = mk(im.width * s, im.height * s);
+      ctx(cv).drawImage(im, 0, 0, cv.width, cv.height); const url = cv.toDataURL("image/jpeg", 0.85); CUSTOM[g] = url; save("escui31-custom", CUSTOM);
+      PHOTOS.custom[g] = await loadImg(url); CFG.covers[g] = "custom"; persist(); render(); };
+    rd.readAsDataURL(f); };
+  inp.click();
+}
+const cyc = (k, d) => { const ch = OPTS[k].ch.slice().sort((a, b) => k === "accent" ? PALETTE.findIndex(p => p[0] === a) - PALETTE.findIndex(p => p[0] === b) : 0); S[k] = ch[(ch.indexOf(S[k]) + d + ch.length) % ch.length]; };
+const cycNum = (k, d) => { S[k] = String((lvl(S[k]) + d + 6) % 6); };
+const thumbCache = new Map();
+function thumb(kind, val) {
+  const key = kind + val + S.accent; if (thumbCache.has(key)) return thumbCache.get(key);
+  const t = mk(48, 30), c = ctx(t); rect(c, 0, 0, 47, 29, VOID);
+  if (kind === "fig") { const f = mk(96, 60); renderShape(ctx(f), val, 0.6, acc(), 96, 60, 1.0, 22); c.drawImage(f, 0, 0, 48, 30); }
+  else c.drawImage(pattern(val, 96, 60), 0, 0, 48, 30);
+  rect(c, 0, 0, 47, 29, null, [255, 255, 255, 40]); thumbCache.set(key, t); return t;
+}
+function renderApp() {
+  const cv = $("app"), c = ctx(cv), RED = [255, 42, 31];
+  // the card behind, darkened (make_bg): base + figure + over3 of the first collection
+  c.drawImage(baseOf(), 0, 0); const fc = mk(HERO[2], HERO[3]); figFrame(ctx(fc), figureFor(CFG, COLLS[0]), 0, acc()); c.drawImage(fc, HERO[0], HERO[1]);
+  c.drawImage(overOf(COLLS[0], 3), 0, 0); c.fillStyle = "rgba(0,0,0,.816)"; c.fillRect(0, 0, W, H);
+  const rows = appRows(), vis = 15, rh = 36;
+  APP.cur = Math.max(0, Math.min(APP.cur, rows.length - 1)); if (APP.cur < APP.top) APP.top = APP.cur; if (APP.cur >= APP.top + vis) APP.top = APP.cur - vis + 1;
+  const shown = rows.slice(APP.top, APP.top + vis), pw = 560, ph = 86 + shown.length * rh + 40, px = (W - pw) >> 1, py = (H - ph) >> 1;
+  rect(c, px, py, px + pw, py + ph, [11, 11, 11, 246], [255, 255, 255, 26]);
+  const ic = mk(120, 120); renderShape(ctx(ic), CFG.boot_logo, 0.6, acc(), 120, 120, 1.2, 48); c.drawImage(ic, px + 22, py + 22, 34, 34);
+  text(c, px + 66, py + 39, { main: "ESCAPE/UI", figs: "FIGURES", pats: "PATTERNS", covs: "COVERS" }[APP.page], font("dot", 30, 900), INK, "lm");
+  text(c, px + pw - 22, py + 39, { main: "THEME SETTINGS", figs: "PER COLLECTION", pats: "PER GAME", covs: "PER GAME" }[APP.page], font("px", 12), DIM, "rm");
+  let y = py + 76;
+  shown.forEach(([lb, [kind, val], , sep], i) => {
+    const n = APP.top + i, on = n === APP.cur;
+    if (kind === "danger") {
+      c.save(); c.beginPath(); c.rect(px + 1, y + 2, pw - 2, rh - 4); c.clip();
+      for (let k = -rh; k < pw; k += 18) poly(c, [[px + 1 + k, y + rh - 2], [px + 1 + k + 9, y + rh - 2], [px + 1 + k + 9 + rh - 4, y + 2], [px + 1 + k + rh - 4, y + 2]], RED.concat([on ? 255 : 85]));
+      c.restore();
+      const fl = font("px", 12), t = lb.toUpperCase(), tw = textLen(fl, t);
+      rect(c, W / 2 - tw / 2 - 12, y + 8, W / 2 + tw / 2 + 12, y + rh - 8, VOID, on ? RED : null);
+      text(c, W / 2, y + rh / 2, t, fl, on ? [255, 255, 255] : RED, "mm");
+      for (const tx of [px + 16, px + pw - 36]) warnTri(c, tx, y + 9, 20, 18, on ? [255, 255, 255] : RED, on ? RED : VOID);
+    } else {
+      if (on) rect(c, px + 1, y, px + pw - 1, y + rh - 1, [255, 255, 255, 18]);
+      text(c, px + 24, y + rh / 2, pad2(n + 1), font("px", 12), on ? acc() : [255, 255, 255, 48], "lm");
+      text(c, px + 56, y + rh / 2, lb.length < 34 ? lb : lb.slice(0, 32) + "…", font("grot", 16, 400), on ? [255, 255, 255] : [169, 169, 165], "lm");
+      let rx = px + pw - 24;
+      if (kind === "open") text(c, rx, y + rh / 2, ">>>", font("px", 12), on ? acc() : [60, 60, 60], "rm");
+      else {
+        const vt = kind === "fig" ? (SHAPE_NAMES[val] || val).toUpperCase() : kind === "cov" ? COVER_NAMES[val].toUpperCase() : val.toUpperCase(), fv = font("px", 12);
+        if (on) { text(c, rx, y + rh / 2, ">", fv, acc(), "rm"); rx -= 18; }
+        text(c, rx, y + rh / 2, vt, fv, on ? INK : DIM, "rm"); rx -= textLen(fv, vt) + 10;
+        if (kind === "chip") { rect(c, rx - 14, y + rh / 2 - 7, rx, y + rh / 2 + 7, acc(), [255, 255, 255, 70]); rx -= 24; }
+        else if (kind === "cov") {
+          const ph = val === "original" ? PHOTOS.original[lb] : val === "custom" ? PHOTOS.custom[lb] : null, t = mk(48, 30), tc = ctx(t);
+          rect(tc, 0, 0, 47, 29, VOID); if (ph) { const s = Math.max(48 / ph.width, 30 / ph.height); tc.drawImage(ph, (48 - ph.width * s) / 2, (30 - ph.height * s) / 2, ph.width * s, ph.height * s); }
+          else if (val === "logo") text(tc, 24, 15, "ABC", font("dot", 14, 900), INK, "mm");
+          rect(tc, 0, 0, 47, 29, null, [255, 255, 255, 40]); c.drawImage(t, Math.floor(rx - 48), Math.floor(y + rh / 2 - 15));
+          if (on) rect(c, rx - 48, y + rh / 2 - 15, rx - 1, y + rh / 2 + 14, null, acc()); rx -= 58;
+        }
+        else if (kind === "fig" || kind === "pat") {
+          const th = kind === "pat" ? thumb("pat", val === "auto" ? patternFor({ patterns: {} }, lb) : val) : thumb("fig", val);
+          c.drawImage(th, Math.floor(rx - 48), Math.floor(y + rh / 2 - 15)); if (on) rect(c, rx - 48, y + rh / 2 - 15, rx - 1, y + rh / 2 + 14, null, acc()); rx -= 58;
+        }
+        if (on) text(c, rx, y + rh / 2, "<", fv, acc(), "rm");
+      }
+      if (sep) line(c, [[px + 1, y + rh - 1], [px + pw - 1, y + rh - 1]], [29, 29, 28]);
+    }
+    y += rh;
+  });
+  text(c, px + 22, py + ph - 20, "ESCAPE/UI", font("px", 12), DIM, "lm");
+  text(c, px + pw - 22, py + ph - 20, "◀▶ CHANGE · A " + (APP.page === "covs" ? "YOUR OWN" : "OPEN") + " · B " + (APP.page === "main" ? "SAVE & EXIT" : "BACK"), font("px", 12), DIM, "rm");
+}
+function appKey(k) {
+  const rows = appRows(); if (k !== "a") APP.armed = false;
+  if (k === "up") APP.cur = (APP.cur - 1 + rows.length) % rows.length;
+  else if (k === "down") APP.cur = (APP.cur + 1) % rows.length;
+  else if (k === "left" || k === "right") { const r = rows[APP.cur]; if (!["open", "danger"].includes(r[1][0])) r[2](k === "left" ? -1 : 1); }
+  else if (k === "a") { const r = rows[APP.cur]; if (r[0].startsWith("Draw all")) APP.armed = true; else if (r[1][0] === "cov") addOwnCover(r[0]); else r[2](["open", "danger"].includes(r[1][0]) ? 0 : 1); }
+  else if (k === "b") { if (APP.page !== "main") { APP.cur = { figs: 8, pats: 9, covs: 10 }[APP.page]; APP.page = "main"; APP.top = 0; } else return leaveApp(); }
+  else if (k === "start") return leaveApp();
+  persist(); thumbCache.clear(); render();
+}
+function leaveApp() { persist(); syncHeader(); show("list"); startFigure(); }
+
+// ---------- ES's help bar and status line ----------
+const HELP = {
+  sys: [["start", "MENU"], ["B", "NAVIGATION BAR"], ["Y", "SEARCH"], ["X", "RANDOM"], ["A", "SELECT"], ["dpad", "CHOOSE"]],
+  list: [["select", "OPTIONS"], ["start", "MENU"], ["B", "BACK"], ["Y", "SEARCH"], ["X", "FAVORITE"], ["A", "LAUNCH"]],
+  menu: [["start", "CLOSE"], ["B", "BACK"], ["A", "SELECT"], ["dpad", "CHANGE"], ["dpad", "CHOOSE"]],
+};
+function renderHelp() {
+  const h = screen === "menu" ? HELP.menu : screen === "list" ? HELP.list : screen === "sys" ? HELP.sys : null;
+  $("help").hidden = !h; $("status").hidden = screen === "boot" || screen === "app" || screen === "charge";
+  if (!h) return;
+  $("help").innerHTML = h.map(([b, t]) => `<span><i class="hb hb-${b}">${b.length === 1 ? b : ""}</i>${t}</span>`).join("");
+}
+function clock() { const d = new Date(); $("clock").textContent = pad2(d.getHours()) + ":" + pad2(d.getMinutes()); $("batt").textContent = batt.lvl + "%"; }
+
+// ---------- battery effects (ES's battery icon over the whole screen) ----------
+function renderFx() {
+  const st = $("stage"), onSys = screen === "sys" || (screen === "menu" && under === "sys");
+  st.classList.toggle("low", S.lowbatt === "on" && !batt.chg && batt.lvl <= 10 && screen !== "boot" && screen !== "app");
+  fxCharge.on = false;   // the in-menu effect is gone: charged.py shows a charging screen instead
+  fxCharge.card = onSys ? COLLS[ci] : null;
+}
+// charge_frames(): fringes in torn zones over the card + flickering dead pixels; game lists get thin torn lines
+const PAL = [[0, 0, 0], [2, 2, 2], [255, 0, 64], [0, 220, 255], [0, 255, 106], [42, 107, 255], [255, 255, 255], [255, 0, 255], [0, 240, 255]];
+const fxCharge = { on: false, card: null, frames: new Map(), f: 0 };
+function chargeFrames(card) {
+  const key = (card || "") + S.accent + (card ? figureFor(CFG, card) : ""); if (fxCharge.frames.has(key)) return fxCharge.frames.get(key);
+  let lum = null;
+  if (card) {
+    const cc = mk(W, H), c = ctx(cc); c.drawImage(baseOf(), 0, 0); const fc = mk(HERO[2], HERO[3]); figFrame(ctx(fc), figureFor(CFG, card), 0, acc()); c.drawImage(fc, HERO[0], HERO[1]); c.drawImage(overOf(card, 3), 0, 0);
+    const d = c.getImageData(0, 0, W, H).data; lum = new Int16Array(W * H); for (let i = 0; i < W * H; i++) lum[i] = (d[i * 4] * 299 + d[i * 4 + 1] * 587 + d[i * 4 + 2] * 114) / 1000 | 0;
+  }
+  const r = new PyRandom(card || 7), frames = []; let dead = [];
+  for (let f = 0; f < 14; f++) {
+    const idx = new Uint8Array(W * H);
+    for (let z = 0, nz = 2 + r.randrange(3); z < nz; z++) {
+      const zw = Math.floor(90 + r.random() * 420), zh = r.random() < .5 ? Math.floor(10 + r.random() * 40) : Math.floor(60 + r.random() * 160);
+      const zx = Math.floor(r.random() * (W - zw)), zy = Math.floor(r.random() * (H - zh)), s = 4 + r.randrange(6);
+      if (lum) for (let y = zy; y < zy + zh; y++) for (let x = zx; x < zx + zw; x++) {
+        const v = lum[y * W + x], rv = x - s >= zx ? lum[y * W + x - s] : 0, lv = x + s < zx + zw ? lum[y * W + x + s] : 0;
+        if (rv - v > 60) idx[y * W + x] = 2; if (lv - v > 60) idx[y * W + x] = 3;
+      } else { const yy = zy + (zh >> 1); for (let x = zx; x < zx + zw; x++) idx[yy * W + x] = 2; for (let x = Math.min(W - 1, zx + 6); x < Math.min(W, zx + zw + 6); x++) idx[Math.min(H - 1, yy + 2) * W + x] = 3; }
+    }
+    if (r.random() < 0.9) { const ln = r.random() < .12, sz = 2 + r.randrange(4); for (let k = 0, m = ln ? 1 : 1 + r.randrange(3); k < m; k++) dead.push([r.randrange(W), r.randrange(H), ln ? Math.floor(30 + r.random() * 160) : sz, ln ? 1 : sz, 2 + r.randrange(PAL.length - 2), f + 1 + r.randrange(8)]); }
+    dead = dead.filter(p => p[5] > f);
+    for (const [x, y, w, h, c] of dead) if (r.random() < .85) for (let yy = y; yy < Math.min(H, y + h); yy++) for (let xx = x; xx < Math.min(W, x + w); xx++) idx[yy * W + xx] = c;
+    const cv = mk(W, H), c = ctx(cv), im = c.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) if (idx[i] >= 2) { const p = PAL[idx[i]]; im.data[i * 4] = p[0]; im.data[i * 4 + 1] = p[1]; im.data[i * 4 + 2] = p[2]; im.data[i * 4 + 3] = 255; }
+    c.putImageData(im, 0, 0); frames.push(cv);
+  }
+  fxCharge.frames.set(key, frames); return frames;
+}
+setInterval(() => {
+  const c = ctx($("fx-charge")); c.clearRect(0, 0, W, H);
+  if (!fxCharge.on) return;
+  const fr = chargeFrames(fxCharge.card); fxCharge.f = (fxCharge.f + 1) % fr.length; c.drawImage(fr[fxCharge.f], 0, 0);
+}, 110);
+// vignette_frames(): red dots on a 2-px Bayer grid, breathing (12 frames × 110 ms)
+const vig = (() => {
+  const B = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], frames = [];
+  for (let k = 0; k < 12; k++) {
+    const f = 0.15 + 0.85 * (0.5 - 0.5 * Math.cos(TAU * k / 12)), cv = mk(W, H), c = ctx(cv), im = c.createImageData(W, H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const dx = (x - W / 2) / (W / 2), dy = (y - H / 2) / (H / 2), r = Math.sqrt(dx * dx * 0.9 + dy * dy * 1.1), a = Math.pow(Math.max(0, Math.min(1, (r - 0.72) / 0.5)), 1.8);
+      if (a * f * 0.6 > B[(y >> 1) & 3][(x >> 1) & 3] / 16) { const i = (y * W + x) * 4; im.data[i] = 255; im.data[i + 1] = 24; im.data[i + 2] = 16; im.data[i + 3] = 255; }
+    }
+    c.putImageData(im, 0, 0); frames.push(cv);
+  }
+  return { frames, f: 0 };
+})();
+setInterval(() => { const c = ctx($("fx-vig")); c.clearRect(0, 0, W, H); if (!$("stage").classList.contains("low")) return; vig.f = (vig.f + 1) % 12; c.drawImage(vig.frames[vig.f], 0, 0); }, 110);
+
+// ---------- input: the Brick's buttons (keyboard: arrows, Enter = A, Backspace/Esc = B, M = START) ----------
+// ---------- the charging screen (tool/charge_screen.py): plugged in + 15 s untouched, once per plug-in ----------
+const CHG = { timer: null, fig: "globe", k: 0, burst: -1, next: 0, rnd: null, back: null, prev: "sys" };
+function armCharging() {
+  clearTimeout(CHG.timer);
+  if (batt.chg && S.charge === "on") CHG.timer = setTimeout(() => { if (screen !== "app" && screen !== "boot" && screen !== "charge") openCharging(); }, 15000);
+}
+function openCharging() {
+  CHG.prev = screen === "menu" ? under : screen; CHG.fig = SHAPE_LIST[Math.floor(Math.random() * SHAPE_LIST.length)];
+  CHG.k = 0; CHG.burst = -1; CHG.next = performance.now() + 1000 + Math.random() * 2000; CHG.rnd = new PyRandom(Math.floor(Math.random() * 1e9));
+  const b = mk(W, H), c = ctx(b); rect(c, 0, 0, W - 1, H - 1, VOID);
+  const f = font("dot", 36, 900); textSpaced(c, W / 2 - textW(f, "ESCAPE/UI", 10) / 2, 560, "ESCAPE/UI", f, INK, "lm", 10);
+  text(c, W / 2, 604, "エスケープ", font("jp", 14), DIM, "mm"); text(c, W / 2, 660, `CHARGING · ${batt.lvl}%`, font("px", 16), INK, "mm");
+  rect(c, W / 2 - 110, 684, W / 2 + 110, 688, null, [60, 60, 58]); rect(c, W / 2 - 109, 685, W / 2 - 109 + 218 * batt.lvl / 100, 687, acc());
+  CHG.back = b; show("charge");
+}
+function chargeTick() {
+  if (screen !== "charge") return;
+  const [span, sec] = LOOP[CHG.fig] || [TAU, 12], n = Math.max(2, Math.round(sec * 24));
+  const cv = $("chg-screen"), c = ctx(cv); c.drawImage(CHG.back, 0, 0);
+  renderShape(c, CHG.fig, span * (CHG.k % n) / n, acc(), 400, 400, 0.8, null, 1, W / 2 - 200, 130); CHG.k++;
+  const now = performance.now();
+  if (CHG.burst < 0 && now >= CHG.next) { CHG.burst = 0; CHG.blen = 6 + CHG.rnd.randrange(8); }
+  if (CHG.burst >= 0) {
+    const g = glitchFrame(cv, Math.min(14, Math.floor(CHG.burst * 15 / CHG.blen)), CHG.rnd); c.fillStyle = "#000"; c.fillRect(0, 0, W, H); c.drawImage(g, 0, 0);
+    if (++CHG.burst >= CHG.blen) { CHG.burst = -1; CHG.next = now + 2000 + Math.random() * 4000; }
+  }
+}
+setInterval(chargeTick, 1000 / 24);
+
+function key(k) {
+  armCharging();
+  if (screen === "charge") { show(CHG.prev); startFigure(); return; }   // the button is eaten, as on the Brick
+  if (screen === "boot") { show("sys"); startFigure(); return; }
+  if (screen === "menu") return menuKey(k);
+  if (screen === "app") return appKey(k);
+  if (k === "start") return openMenu("main");
+  if (screen === "sys") {
+    if (k === "left" || k === "right") { ci = (ci + (k === "left" ? -1 : 1) + COLLS.length) % COLLS.length; startFigure(); }
+    else if (k === "a") { gi = 0; gtop = 0; show("list"); return; }
+  } else if (screen === "list") {
+    const n = gamesOf(COLLS[ci]).length;
+    if (k === "up") gi = (gi - 1 + n) % n; else if (k === "down") gi = (gi + 1) % n;
+    else if (k === "left") gi = Math.max(0, gi - 10); else if (k === "right") gi = Math.min(n - 1, gi + 10);
+    else if (k === "b") { show("sys"); startFigure(); return; }
+    else if (k === "a" && gamesOf(COLLS[ci])[gi] === "EscapeUI") { APP.page = "main"; APP.cur = 0; show("app"); return; }
+  }
+  render();
+}
+const KEYMAP = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Enter: "a", " ": "a", Backspace: "b", Escape: "b", m: "start", M: "start" };
+addEventListener("keydown", e => { const k = KEYMAP[e.key]; if (k) { e.preventDefault(); key(k); } });
+document.querySelectorAll("[data-k]").forEach(b => b.addEventListener("click", () => key(b.dataset.k)));
+
+// ---------- the page around the screen ----------
+function syncHeader() {
+  document.querySelectorAll(".sw").forEach(b => b.setAttribute("aria-pressed", b.dataset.a === S.accent));
+  document.querySelectorAll("[data-mo]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mo === S.motion));
+  $("chg").setAttribute("aria-pressed", batt.chg); $("batt-val").textContent = batt.lvl + "%"; clock();
+}
+PALETTE.forEach(([slug, name, c]) => {
+  const b = document.createElement("button"); b.className = "sw"; b.dataset.a = slug; b.title = name; b.setAttribute("aria-label", name);
+  b.style.background = css(c); b.onclick = () => { S.accent = slug; persist(); syncHeader(); startFigure(); render(); }; $("swatches").appendChild(b);
+});
+document.querySelectorAll("[data-mo]").forEach(b => b.onclick = () => { S.motion = b.dataset.mo; persist(); syncHeader(); startFigure(); render(); });
+document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
+  const g = b.dataset.go; mstack = [];
+  if (g === "menu") { under = "sys"; screen = "sys"; openMenu("main"); return; }
+  if (g === "app") { APP.page = "main"; APP.cur = 0; show("app"); return; }
+  show(g); startFigure();
+});
+$("batt-in").oninput = e => { batt.lvl = +e.target.value; syncHeader(); render(); };
+$("chg").onclick = () => { batt.chg = !batt.chg; syncHeader(); if (!batt.chg && screen === "charge") show(CHG.prev); armCharging(); render(); };
+function fit() {
+  const f = $("frame").getBoundingClientRect(), padd = innerWidth < 640 ? 16 : 36;
+  const s = Math.min((f.width - padd) / 1024, (Math.max(f.height, 260) - padd) / 768, 1.25);
+  $("viewport").style.width = 1024 * s + "px"; $("viewport").style.height = 768 * s + "px"; $("stage").style.transform = `scale(${s})`;
+}
+addEventListener("resize", fit);
+setInterval(clock, 10000);
+const FONTS = ['900 76px "Doto"', '400 16px "Silkscreen"', '700 16px "Silkscreen"', '300 15px "Archivo"', '400 16px "Archivo"', '400 16px "Noto Sans JP"'];
+Promise.all(FONTS.map(f => document.fonts.load(f, "AZaz09エスケープ脱出→")).concat([photosReady])).catch(() => {}).then(() => {
+  if (!PHOTOS.original.EscapeUI) PHOTOS.original.EscapeUI = escapeUiPhoto();
+  fit(); syncHeader(); show("boot"); requestAnimationFrame(tick);
+  setTimeout(() => { if (screen === "boot") { show("sys"); startFigure(); } }, 1600);
+});
+
+</script>

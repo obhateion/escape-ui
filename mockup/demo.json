@@ -1,0 +1,205 @@
+{
+ "accent": "orange",
+ "cfg": {
+  "boot_logo": "globe",
+  "figures": {
+   "ALL": "globe",
+   "GAMES": "radar",
+   "SOUND": "waves",
+   "APPS": "cube"
+  },
+  "patterns": {}
+ },
+ "colls": {
+  "ALL": [
+   "Cave Story",
+   "Celeste Classic",
+   "ChipNomad",
+   "Doom (shareware)",
+   "EscapeUI",
+   "LittleGPTracker",
+   "Lo-Fi Lounge",
+   "Night Driver 3000",
+   "Orbit Patrol",
+   "PortMaster",
+   "Pulsar",
+   "Quake (shareware)",
+   "Sokoban Deluxe",
+   "Star Courier: Remix",
+   "SuperTux",
+   "Tracker Demo",
+   "Ёжик в тумане",
+   "ドット探検"
+  ],
+  "GAMES": [
+   "Cave Story",
+   "Celeste Classic",
+   "Doom (shareware)",
+   "Night Driver 3000",
+   "Orbit Patrol",
+   "Quake (shareware)",
+   "Sokoban Deluxe",
+   "Star Courier: Remix",
+   "SuperTux",
+   "Ёжик в тумане",
+   "ドット探検"
+  ],
+  "SOUND": [
+   "ChipNomad",
+   "LittleGPTracker",
+   "Lo-Fi Lounge",
+   "Pulsar",
+   "Tracker Demo"
+  ],
+  "APPS": [
+   "EscapeUI",
+   "PortMaster"
+  ]
+ },
+ "info": {
+  "Cave Story": {
+   "s": "ports",
+   "fav": true,
+   "p": 14,
+   "h": 75600,
+   "l": "20261028",
+   "d": "A small cave, a lost robot and a floating island. A homebrew classic, here as a port."
+  },
+  "Celeste Classic": {
+   "s": "pico8",
+   "fav": true,
+   "p": 31,
+   "h": 32400,
+   "l": "20261030",
+   "d": "Climb the mountain one screen at a time. The original PICO-8 jam game."
+  },
+  "ChipNomad": {
+   "s": "ports",
+   "fav": false,
+   "p": 9,
+   "h": 132600,
+   "l": "20261031",
+   "d": "A tracker for chiptune: patterns, phrases, chains."
+  },
+  "Doom (shareware)": {
+   "s": "prboom",
+   "fav": false,
+   "p": 6,
+   "h": 22800,
+   "l": "20261012",
+   "d": "The first episode, free to share."
+  },
+  "EscapeUI": {
+   "s": "ports",
+   "fav": false,
+   "p": 22,
+   "h": 3600,
+   "l": "20261101",
+   "d": "The settings app of this theme: colours, figures, patterns, boot logo."
+  },
+  "LittleGPTracker": {
+   "s": "ports",
+   "fav": false,
+   "p": 4,
+   "h": 54000,
+   "l": "20261020",
+   "d": "A sample-based tracker inspired by LSDJ."
+  },
+  "Lo-Fi Lounge": {
+   "s": "ports",
+   "fav": false,
+   "p": 2,
+   "h": 2700,
+   "l": "20260930",
+   "d": "A demo collection name: anything you make shows up like this."
+  },
+  "Night Driver 3000": {
+   "s": "pico8",
+   "fav": false,
+   "p": 0,
+   "h": 0,
+   "l": "",
+   "d": "An imaginary racer, here to show a game you have never started."
+  },
+  "Orbit Patrol": {
+   "s": "pico8",
+   "fav": false,
+   "p": 3,
+   "h": 4200,
+   "l": "20261002",
+   "d": "An imaginary shooter in orbit."
+  },
+  "PortMaster": {
+   "s": "ports",
+   "fav": false,
+   "p": 12,
+   "h": 5700,
+   "l": "20261025",
+   "d": "Installs ports of games and apps."
+  },
+  "Pulsar": {
+   "s": "ports",
+   "fav": false,
+   "p": 5,
+   "h": 18600,
+   "l": "20261018",
+   "d": "A pocket synth and sequencer."
+  },
+  "Quake (shareware)": {
+   "s": "tyrquake",
+   "fav": false,
+   "p": 2,
+   "h": 7200,
+   "l": "20260911",
+   "d": "The shareware episode."
+  },
+  "Sokoban Deluxe": {
+   "s": "pico8",
+   "fav": false,
+   "p": 8,
+   "h": 14400,
+   "l": "20261009",
+   "d": "Push the boxes. An imaginary puzzle game."
+  },
+  "Star Courier: Remix": {
+   "s": "pico8",
+   "fav": false,
+   "p": 1,
+   "h": 1200,
+   "l": "20261029",
+   "d": "A name with a colon: SHARE cannot store it as a file name, so its sheet is drawn per rom file."
+  },
+  "SuperTux": {
+   "s": "ports",
+   "fav": false,
+   "p": 3,
+   "h": 9000,
+   "l": "20260920",
+   "d": "The free penguin platformer."
+  },
+  "Tracker Demo": {
+   "s": "ports",
+   "fav": false,
+   "p": 0,
+   "h": 0,
+   "l": "",
+   "d": "An imaginary song file."
+  },
+  "Ёжик в тумане": {
+   "s": "pico8",
+   "fav": false,
+   "p": 1,
+   "h": 900,
+   "l": "20261027",
+   "d": "A Cyrillic name: the letters come from the system font, dotted for the dot-matrix one."
+  },
+  "ドット探検": {
+   "s": "pico8",
+   "fav": false,
+   "p": 0,
+   "h": 0,
+   "l": "",
+   "d": "A Japanese name, drawn the same way."
+  }
+ }
+}

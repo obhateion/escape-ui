@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+theme:   escape/UI  (Nothing / Apple / Y2K / brutalism)
+for:     EmulationStation on Knulli / Batocera handhelds, made on a TrimUI Brick (1024x768)
+art:     drawn by ./tool/gen.py into ./gen (figures, stickers, covers, battery effects);
+         settings app "escape-UI" in PORTS / APPS; settings file /userdata/system/configs/escape-ui/config.json
+fonts:   Doto, Silkscreen, Archivo, Martian Mono (SIL Open Font License, see ./fonts)
+-->
+<theme defaultTransition="instant">
+  <formatVersion>7</formatVersion>
+
+  <!-- acc = the accent folder in ./gen (the escape-accent option switches it) -->
+  <variables>
+    <ink>f2f2ee</ink>
+    <dim>6e6e6b</dim>
+    <fontGrot>./fonts/Archivo[wdth,wght].ttf</fontGrot>
+    <fontPx>./fonts/Silkscreen-Regular.ttf</fontPx>
+    <acc>white</acc>
+  </variables>
+
+  <!-- the theme's own options: UI settings > Theme configuration (the escape-UI app sets them too) -->
+  <!-- ES removes the setting when the FIRST entry is picked, and the theme then shows its defaults
+       (level 3): so the first entry is "default", and 0-5 follow in order (3 = the same as default) -->
+  <subset name="escape-detail" displayName="escape/UI · detail level">
+    <include name="default" displayName="default (3)"/>
+    <include name="0" displayName="0 · text only"/>
+    <include name="1" displayName="1 · figure + HUD"/>
+    <include name="2" displayName="2 · pills, chevrons"/>
+    <include name="3" displayName="3 · sparkles, katakana"/>
+    <include name="4" displayName="4 · warnings, barcodes"/>
+    <include name="5" displayName="5 · everything"/>
+  </subset>
+  <subset name="escape-covers" displayName="escape/UI · cover stickers">
+    <include name="default" displayName="default (3)"/>
+    <include name="0" displayName="0 · pattern only"/>
+    <include name="1" displayName="1"/>
+    <include name="2" displayName="2"/>
+    <include name="3" displayName="3"/>
+    <include name="4" displayName="4"/>
+    <include name="5" displayName="5 · as many as fit"/>
+  </subset>
+  <subset name="escape-motion" displayName="escape/UI · figure motion">
+    <include name="video" displayName="video loops"/>
+    <include name="light" displayName="light (turn + breathe)"/>
+    <include name="still" displayName="still"/>
+  </subset>
+  <subset name="escape-ca" displayName="escape/UI · chromatic aberration">
+    <include name="off" displayName="off"/>
+    <include name="always" displayName="always"/>
+  </subset>
+  <subset name="escape-lowbatt" displayName="escape/UI · low battery pulse">
+    <include name="on" displayName="on"/>
+    <include name="off" displayName="off"/>
+  </subset>
+  <subset name="escape-charge" displayName="escape/UI · charging screen">
+    <include name="on" displayName="on"/>
+    <include name="off" displayName="off"/>
+  </subset>
+  <!-- read by tool/charged.py: CPU governor "performance" on ES's menus (no effect on the look) -->
+  <subset name="escape-perf" displayName="escape/UI · smooth mode (more power)">
+    <include name="on" displayName="on"/>
+    <include name="off" displayName="off"/>
+  </subset>
+  <!-- the accent: each colour is drawn into ./gen/<name>, so switching is instant; tool/gen.py lists
+       here only the colours that are drawn (escape-UI > "Draw all colours" draws the rest) -->
+  <subset name="escape-accent" displayName="escape/UI · accent colour">
+    <!-- accents: begin (written by tool/gen.py) -->
+    <include name="white" displayName="white">./accents/white.xml</include>
+    <include name="red" displayName="red">./accents/red.xml</include>
+    <include name="orange" displayName="orange">./accents/orange.xml</include>
+    <include name="yellow" displayName="yellow">./accents/yellow.xml</include>
+    <include name="acid" displayName="acid">./accents/acid.xml</include>
+    <include name="green" displayName="green">./accents/green.xml</include>
+    <include name="ice" displayName="ice">./accents/ice.xml</include>
+    <include name="blue" displayName="blue">./accents/blue.xml</include>
+    <include name="violet" displayName="violet">./accents/violet.xml</include>
+    <include name="pink" displayName="pink">./accents/pink.xml</include>
+    <!-- accents: end -->
+  </subset>
+
+  <!-- ===== everywhere ===== -->
+  <view name="screen">
+    <controllerActivity name="controllerActivity"><visible>false</visible></controllerActivity>
+    <batteryIndicator name="batteryIndicator"><visible>false</visible></batteryIndicator>
+    <text name="clock"><pos>1 1</pos></text>
+  </view>
+
+  <view name="system,basic,detailed">
+    <image name="escape-base" extra="true">
+      <pos>0 0</pos><size>1 1</size><path>./gen/${acc}/base.png</path><zIndex>0</zIndex>
+    </image>
+    <stackpanel name="escape-status" extra="true">
+      <pos>0.5 0.0475</pos><size>0.457 0.034</size>
+      <orientation>horizontal</orientation><reverse>true</reverse><separator>0.018</separator>
+      <batteryText name="escape-batt">
+        <color>${ink}</color><fontPath>${fontPx}</fontPath><fontSize>0.0208</fontSize>
+      </batteryText>
+      <clock name="escape-clock">
+        <color>${ink}</color><fontPath>${fontPx}</fontPath><fontSize>0.0208</fontSize>
+      </clock>    </stackpanel>
+    <helpsystem name="help">
+      <pos>0.043 0.946</pos><origin>0 0.5</origin>
+      <textColor>${dim}</textColor><iconColor>${ink}</iconColor>
+      <fontPath>${fontPx}</fontPath><fontSize>0.026</fontSize>
+    </helpsystem>
+
+    <!-- battery effects: ES's battery icon stretched over the whole screen, one image per state;
+         the breathing is inside the GIF (ES can't animate a battery icon's opacity) -->
+    <batteryIcon name="escape-lowbatt" extra="true">
+      <pos>0 0</pos><size>1 1</size><zIndex>90</zIndex>
+      <full>./gen/${acc}/fx/clear.png</full><at75>./gen/${acc}/fx/clear.png</at75><at50>./gen/${acc}/fx/clear.png</at50>
+      <at25>./gen/${acc}/fx/clear.png</at25><incharge>./gen/${acc}/fx/clear.png</incharge><empty>./gen/${acc}/fx/vignette.gif</empty>
+    </batteryIcon>
+  </view>
+
+  <!-- ===== the system view: one card per collection ===== -->
+  <view name="system">
+    <text name="systemInfo,logoText"><visible>false</visible><color>00000000</color></text>
+    <image name="escape-fig" extra="true">
+      <pos>0.6934 0.4310</pos><origin>0.5 0.5</origin><size>0.546875 0.61198</size>
+      <rotationOrigin>0.5 0.5</rotationOrigin>
+      <path>./gen/${acc}/sys/_new/fig.png</path>
+      <path>./gen/${acc}/sys/${system.theme}/fig.png</path><zIndex>5</zIndex>
+      <visible>!exists("${themePath}/gen/${acc}/sys/" + {system:theme} + "/fig.mp4")</visible>
+    </image>
+    <!-- figure motion "video loops" (the default): the figure turning, an h264 loop. It opens with a
+         0.6 s glitch entrance drawn into the file, which also hides ES starting it; the still figure
+         stays hidden meanwhile. (No <loops>: 0 there means "play it 0 times".) -->
+    <video name="escape-loop" extra="true">
+      <pos>0.41992 0.125</pos><size>0.546875 0.61198</size>
+      <path>./gen/${acc}/sys/${system.theme}/fig.mp4</path><zIndex>6</zIndex>
+      <delay>0</delay><effect>none</effect><showSnapshotNoVideo>false</showSnapshotNoVideo><showSnapshotDelay>false</showSnapshotDelay>
+      <visible>exists("${themePath}/gen/${acc}/sys/" + {system:theme} + "/fig.mp4")</visible>
+    </video>
+    <image name="escape-over" extra="true">
+      <pos>0 0</pos><size>1 1</size><zIndex>20</zIndex>
+      <path>./gen/${acc}/sys/_new/over3.png</path>
+      <path>./gen/${acc}/sys/${system.theme}/over3.png</path>
+      <path ifSubset="escape-detail:0">./gen/${acc}/sys/_new/over0.png</path>
+      <path ifSubset="escape-detail:0">./gen/${acc}/sys/${system.theme}/over0.png</path>
+      <path ifSubset="escape-detail:1">./gen/${acc}/sys/_new/over1.png</path>
+      <path ifSubset="escape-detail:1">./gen/${acc}/sys/${system.theme}/over1.png</path>
+      <path ifSubset="escape-detail:2">./gen/${acc}/sys/_new/over2.png</path>
+      <path ifSubset="escape-detail:2">./gen/${acc}/sys/${system.theme}/over2.png</path>
+      <path ifSubset="escape-detail:3">./gen/${acc}/sys/_new/over3.png</path>
+      <path ifSubset="escape-detail:3">./gen/${acc}/sys/${system.theme}/over3.png</path>
+      <path ifSubset="escape-detail:4">./gen/${acc}/sys/_new/over4.png</path>
+      <path ifSubset="escape-detail:4">./gen/${acc}/sys/${system.theme}/over4.png</path>
+      <path ifSubset="escape-detail:5">./gen/${acc}/sys/_new/over5.png</path>
+      <path ifSubset="escape-detail:5">./gen/${acc}/sys/${system.theme}/over5.png</path>
+    </image>
+    <!-- a collection with no art yet (just created): the stand-in card plus its name as text -->
+    <text name="escape-newname" extra="true">
+      <pos>0.039 0.195</pos><size>0.38 0.09</size><text>${system.fullName}</text><forceUppercase>true</forceUppercase>
+      <fontPath>./fonts/Silkscreen-Bold.ttf</fontPath><fontSize>0.07</fontSize><color>${ink}</color><zIndex>21</zIndex>
+      <visible>!exists("${themePath}/gen/${acc}/sys/" + {system:theme} + "/fig.png")</visible>
+    </text>
+    <text name="escape-newlabel" extra="true">
+      <pos>0.6934 0.431</pos><origin>0.5 0.5</origin><size>0.546875 0.15</size><text>${system.fullName}.</text>
+      <fontPath>./fonts/Silkscreen-Bold.ttf</fontPath><fontSize>0.09</fontSize><alignment>center</alignment><color>${ink}</color><zIndex>21</zIndex>
+      <visible>!exists("${themePath}/gen/${acc}/sys/" + {system:theme} + "/fig.png")</visible>
+    </text>
+    <!-- the strip of collection keys along the bottom is ES's own carousel -->
+    <image name="logo">
+      <path>./gen/${acc}/sys/${system.theme}/key.png</path>
+    </image>
+    <carousel name="systemcarousel">
+      <type>horizontal</type><pos>0.043 0.82</pos><size>0.914 0.094</size>
+      <logoSize>0.254 0.094</logoSize><logoScale>1.08</logoScale><maxLogoCount>3</maxLogoCount>
+      <logoAlignment>center</logoAlignment><color>00000000</color><zIndex>30</zIndex>
+      <defaultTransition>instant</defaultTransition>
+    </carousel>
+  </view>
+
+  <!-- an option left empty in es_settings matches no ifSubset, so the defaults sit in the views above
+       and these views only switch things off or change them -->
+  <view name="system" ifSubset="escape-motion:still">
+    <video name="escape-loop" extra="true"><visible>false</visible></video>
+    <image name="escape-fig" extra="true"><visible>true</visible></image>
+  </view>
+  <view name="system,basic,detailed" ifSubset="escape-lowbatt:off">
+    <batteryIcon name="escape-lowbatt" extra="true"><empty>./gen/${acc}/fx/clear.png</empty></batteryIcon>
+  </view>
+
+  <!-- figure motion "light": the still figure slowly turns and breathes -->
+  <view name="system" ifSubset="escape-motion:light">
+    <video name="escape-loop" extra="true"><visible>false</visible></video>
+    <image name="escape-fig" extra="true"><visible>true</visible></image>
+    <image name="escape-fig" extra="true">
+      <storyboard repeat="forever">
+        <animation property="rotation" from="0" to="360" duration="48000" mode="linear"/>
+        <animation property="scale" from="1" to="1.05" duration="12000" mode="easeInOut"/>
+        <animation property="scale" from="1.05" to="1" begin="12000" duration="12000" mode="easeInOut"/>
+        <animation property="scale" from="1" to="1.05" begin="24000" duration="12000" mode="easeInOut"/>
+        <animation property="scale" from="1.05" to="1" begin="36000" duration="12000" mode="easeInOut"/>
+      </storyboard>
+    </image>
+  </view>
+  <!-- detail 0 = text only: after still/light, which switch the figure back on -->
+  <view name="system" ifSubset="escape-detail:0">
+    <image name="escape-fig" extra="true"><visible>false</visible></image>
+    <video name="escape-loop" extra="true"><visible>false</visible></video>
+  </view>
+
+  <!-- ===== the game lists ===== -->
+  <view name="basic,detailed">
+    <image name="background"><visible>false</visible></image>
+    <image name="logo"><visible>false</visible></image>
+    <text name="logoText"><visible>false</visible></text>
+    <image name="escape-head" extra="true">
+      <pos>0.043 0.11</pos><size>0.449 0.0833</size><zIndex>5</zIndex>
+      <path>./gen/${acc}/sys/_new/head.png</path><path>./gen/${acc}/sys/${system.theme}/head.png</path>
+    </image>
+    <text name="escape-newhead" extra="true">
+      <pos>0.043 0.11</pos><size>0.449 0.0833</size><text>${system.fullName}</text><forceUppercase>true</forceUppercase>
+      <fontPath>./fonts/Silkscreen-Bold.ttf</fontPath><fontSize>0.05</fontSize><color>${ink}</color><zIndex>5</zIndex>
+      <visible>!exists("${themePath}/gen/${acc}/sys/" + {system:theme} + "/head.png")</visible>
+    </text>
+    <textlist name="gamelist">
+      <pos>0.043 0.215</pos><size>0.44 0.64</size><origin>0 0</origin>
+      <fontPath>${fontGrot}</fontPath><fontSize>0.0234</fontSize><lineSpacing>1.9</lineSpacing>
+      <alignment>left</alignment><horizontalMargin>0.022</horizontalMargin>
+      <selectorColor>ffffff12</selectorColor><selectedColor>ffffff</selectedColor>
+      <primaryColor>a9a9a5</primaryColor><secondaryColor>a9a9a5</secondaryColor>
+      <scrollbarColor>ffffff22</scrollbarColor><scrollbarSize>0.004</scrollbarSize><scrollbarAlignment>right</scrollbarAlignment>
+      <zIndex>10</zIndex>
+    </textlist>
+  </view>
+
+  <view name="basic">
+    <textlist name="gamelist"><size>0.914 0.64</size></textlist>
+  </view>
+
+  <view name="detailed">
+    <text name="md_lbl_rating,md_lbl_developer,md_developer,md_lbl_publisher,md_publisher,md_lbl_playcount,md_playcount,md_lbl_lastplayed,md_lbl_players,md_players,md_lbl_releasedate,md_lbl_genre,md_genre,md_lbl_gametime,md_gametime">
+      <visible>false</visible>
+    </text>
+    <datetime name="md_releasedate"><visible>false</visible></datetime>
+    <rating name="md_rating"><visible>false</visible></rating>
+    <image name="md_image,md_thumbnail,md_marquee"><visible>false</visible></image>
+    <video name="md_video"><visible>false</visible></video>
+    <!-- the sticker sheet: a pattern for when a game has no sheet yet, the sheet over it -->
+    <image name="escape-cover-blank" extra="true">
+      <pos>0.5332 0.125</pos><size>0.4297 0.34375</size><path>./gen/${acc}/cover-blank.png</path><zIndex>11</zIndex>
+    </image>
+    <!-- per game: by name; a name that can't be a file name ("Zelda: ...") is drawn per rom file instead -->
+    <image name="escape-cover" extra="true">
+      <pos>0.5332 0.125</pos><size>0.4297 0.34375</size><zIndex>12</zIndex>
+      <path>./gen/${acc}/covers/3/{game:name}.png</path>
+      <path>./gen/${acc}/covers/3{game:path}.png</path>
+      <path ifSubset="escape-covers:0">./gen/${acc}/covers/0/{game:name}.png</path>
+      <path ifSubset="escape-covers:0">./gen/${acc}/covers/0{game:path}.png</path>
+      <path ifSubset="escape-covers:1">./gen/${acc}/covers/1/{game:name}.png</path>
+      <path ifSubset="escape-covers:1">./gen/${acc}/covers/1{game:path}.png</path>
+      <path ifSubset="escape-covers:2">./gen/${acc}/covers/2/{game:name}.png</path>
+      <path ifSubset="escape-covers:2">./gen/${acc}/covers/2{game:path}.png</path>
+      <path ifSubset="escape-covers:3">./gen/${acc}/covers/3/{game:name}.png</path>
+      <path ifSubset="escape-covers:3">./gen/${acc}/covers/3{game:path}.png</path>
+      <path ifSubset="escape-covers:4">./gen/${acc}/covers/4/{game:name}.png</path>
+      <path ifSubset="escape-covers:4">./gen/${acc}/covers/4{game:path}.png</path>
+      <path ifSubset="escape-covers:5">./gen/${acc}/covers/5/{game:name}.png</path>
+      <path ifSubset="escape-covers:5">./gen/${acc}/covers/5{game:path}.png</path>
+    </image>
+    <text name="md_name">
+      <pos>0.5332 0.495</pos><size>0.4297 0.05</size><visible>true</visible><alignment>left</alignment>
+      <fontPath>${fontGrot}</fontPath><fontSize>0.0313</fontSize><color>${ink}</color><zIndex>12</zIndex>
+    </text>
+    <text name="escape-meta-lbl" extra="true">
+      <pos>0.5332 0.56</pos><size>0.13 0.026</size><zIndex>12</zIndex>
+      <text>PLAYED ×</text><fontPath>${fontPx}</fontPath><fontSize>0.0156</fontSize><color>${dim}</color>
+    </text>
+    <text name="escape-meta-lbl2" extra="true">
+      <pos>0.672 0.56</pos><size>0.15 0.026</size><zIndex>12</zIndex>
+      <text>TIME</text><fontPath>${fontPx}</fontPath><fontSize>0.0156</fontSize><color>${dim}</color>
+    </text>
+    <text name="escape-meta-lbl3" extra="true">
+      <pos>0.83 0.56</pos><size>0.14 0.026</size><zIndex>12</zIndex>
+      <text>LAST</text><fontPath>${fontPx}</fontPath><fontSize>0.0156</fontSize><color>${dim}</color>
+    </text>
+    <text name="escape-plays" extra="true">
+      <pos>0.5332 0.588</pos><size>0.13 0.03</size><zIndex>12</zIndex>
+      <text>{game:playcount} > 0 ? {game:playcount} : "—"</text><fontPath>${fontPx}</fontPath><fontSize>0.0208</fontSize><color>${ink}</color>
+    </text>
+    <text name="escape-time" extra="true">
+      <pos>0.672 0.588</pos><size>0.15 0.03</size><zIndex>12</zIndex>
+      <text>{game:gametime} > 0 ? expandseconds({game:gametime}) : "—"</text><fontPath>${fontPx}</fontPath><fontSize>0.0208</fontSize><color>${ink}</color>
+    </text>
+    <datetime name="md_lastplayed">
+      <pos>0.83 0.588</pos><size>0.14 0.03</size><visible>true</visible><zIndex>12</zIndex>
+      <fontPath>${fontPx}</fontPath><fontSize>0.0208</fontSize><color>${ink}</color><displayRelative>false</displayRelative><format>%d.%m</format>
+    </datetime>
+    <text name="md_description">
+      <pos>0.5332 0.645</pos><size>0.4297 0.164</size><visible>true</visible><zIndex>12</zIndex>
+      <fontPath>${fontGrot}</fontPath><fontSize>0.0195</fontSize><color>8f8f8b</color><lineSpacing>1.4</lineSpacing>
+    </text>
+  </view>
+
+  <!-- chromatic aberration "always": an element shader on the drawn layers
+       (ES does not resolve relative shader paths: the theme must live in /userdata/themes/es-theme-escape-ui) -->
+  <view name="system" ifSubset="escape-ca:always">
+    <image name="escape-fig,escape-over" extra="true"><shader><path>${themePath}/shaders/ca.glsl</path><amount>0.0016</amount></shader></image>
+  </view>
+  <view name="detailed" ifSubset="escape-ca:always">
+    <image name="escape-cover" extra="true"><shader><path>${themePath}/shaders/ca.glsl</path><amount>0.0016</amount></shader></image>
+  </view>
+
+  <!-- ===== the menu ===== -->
+  <view name="menu">
+    <menuText name="menutitle"><fontPath>${fontPx}</fontPath><fontSize>0.0286</fontSize><color>${ink}</color></menuText>
+    <menuText name="menufooter"><fontPath>${fontPx}</fontPath><fontSize>0.0156</fontSize><color>${dim}</color></menuText>
+    <menuText name="menutext">
+      <fontPath>${fontGrot}</fontPath><fontSize>0.0234</fontSize><color>a9a9a5</color>
+      <separatorColor>1d1d1c</separatorColor><selectedColor>ffffff</selectedColor><selectorColor>ffffff1a</selectorColor>
+    </menuText>
+    <menuTextSmall name="menutextsmall"><fontPath>${fontPx}</fontPath><fontSize>0.0156</fontSize><color>${dim}</color></menuTextSmall>
+    <menuGroup name="menugroup">
+      <fontPath>${fontPx}</fontPath><fontSize>0.0156</fontSize><color>${dim}</color>
+      <separatorColor>1d1d1c</separatorColor><backgroundColor>00000000</backgroundColor><lineSpacing>2</lineSpacing>
+    </menuGroup>
+    <!-- our own 9-patches (48 px, 16 px corners). ES fits them to the menu with 16 px of corner, so
+         cornerSize must stay 16 or the panel shrinks inside its own rows -->
+    <menuBackground name="menubg">
+      <path>./gen/${acc}/fx/menu-bg.png</path><color>ffffffff</color><cornerSize>16 16</cornerSize>
+      <scrollbarColor>ffffff33</scrollbarColor>
+    </menuBackground>
+    <menuButton name="menubutton">
+      <path>./gen/${acc}/fx/menu-button.png</path><filledPath>./gen/${acc}/fx/menu-button-on.png</filledPath>
+    </menuButton>
+  </view>
+
+  <include>./splash.xml</include>
+</theme>

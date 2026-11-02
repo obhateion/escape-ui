@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- accent pink: the art in ./gen/pink (drawn ahead of time by tool/gen.py) -->
+<theme>
+  <formatVersion>7</formatVersion>
+  <variables><acc>pink</acc></variables>
+</theme>

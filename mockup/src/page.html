@@ -1,0 +1,148 @@
+<meta charset="utf-8">
+<title>escape UI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@900&family=Silkscreen:wght@400;700&family=Archivo:wght@300;400;500&family=Noto+Sans+JP:wght@400&display=swap">
+<style>
+/* v31: the mock-up is now the Brick build itself — the theme's pictures are drawn by the same code as
+   theme/tool/gen.py (ported with Python's random, so every sticker lands where it does on the device),
+   and what ES draws (carousel, help, status, lists, menu) uses the sizes in theme.xml. */
+:root { color-scheme: dark; --page: #101010; --ink: #f2f2ee; --dim: #6e6e6b; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--page); color: var(--ink); font-family: "Archivo", Arial, sans-serif;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.top { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+.top h1 { margin: 0; font: 900 26px/1 "Doto", monospace; letter-spacing: .06em; }
+.top p { margin: 6px 0 0; font: 400 12px/1.5 "Archivo", sans-serif; color: #9a9a96; max-width: 66ch; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; font: 400 10px "Silkscreen", monospace; color: var(--dim); text-transform: uppercase; }
+.group { display: flex; gap: 8px; align-items: center; }
+.sw { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #444; cursor: pointer; padding: 0; position: relative; }
+.sw[aria-pressed="true"]::after { content: ""; position: absolute; inset: -5px; border: 1px solid var(--ink); border-radius: 50%; }
+.tab { font: 400 10px "Silkscreen", monospace; text-transform: uppercase; color: var(--ink); background: transparent; border: 1px solid #333; padding: 7px 9px; cursor: pointer; }
+.tab[aria-pressed="true"] { background: var(--ink); color: #000; border-color: var(--ink); }
+button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.frame { width: 100%; max-width: 1180px; flex: 1 1 auto; min-height: 260px; display: flex; align-items: center; justify-content: center; }
+.bezel { position: relative; background: #181818; border-radius: 22px; padding: 18px; box-shadow: 0 30px 80px #000a, inset 0 0 0 1px #262626; }
+.viewport { position: relative; overflow: hidden; background: #000; }
+.stage { position: absolute; left: 0; top: 0; width: 1024px; height: 768px; transform-origin: 0 0; overflow: hidden; background: #000; }
+.pad { width: 100%; max-width: 1180px; display: flex; flex-wrap: wrap; gap: 10px 26px; justify-content: center; }
+.pad .keys { display: flex; gap: 6px; }
+.pad button { font: 400 11px "Silkscreen", monospace; color: var(--ink); background: #191919; border: 1px solid #2e2e2e; min-width: 40px; height: 34px; cursor: pointer; }
+
+/* ---- inside the screen: 1024 × 768, positions from theme.xml ---- */
+.scr { position: absolute; inset: 0; }
+.scr[hidden], [hidden] { display: none !important; }
+.abs { position: absolute; left: 0; top: 0; }
+#fig, #loop { left: 430px; top: 96px; }
+#fig.light { animation: light 48s linear infinite; transform-origin: 280px 235px; }
+@keyframes light { 0% { transform: rotate(0) scale(1); } 25% { transform: rotate(90deg) scale(1.05); } 50% { transform: rotate(180deg) scale(1); } 75% { transform: rotate(270deg) scale(1.05); } 100% { transform: rotate(360deg) scale(1); } }
+/* chromatic aberration "always" = ca.glsl on the figure and the over image */
+.ca #fig, .ca #over { filter: url(#ca); }
+/* ES's carousel: 3 keys of 260 × 72 in 0.914 × 0.094 at (0.043, 0.82); the picked one 1.08×, the others at half */
+.key { position: absolute; top: 630px; width: 260px; height: 72px; opacity: .5; }
+.key.on { opacity: 1; transform: scale(1.08); }
+/* status: clock and battery text, Silkscreen 0.0208 (16 px), right-aligned ending at x = 980 */
+#status { position: absolute; right: 44px; top: 36px; height: 26px; display: flex; gap: 18px; align-items: center; font: 400 16px "Silkscreen", monospace; color: var(--ink); }
+/* help: Silkscreen 0.026 (20 px) at (0.043, 0.946), text dim, icons ink */
+#help { position: absolute; left: 44px; top: 726px; transform: translateY(-50%); display: flex; gap: 14px; align-items: center; font: 400 20px/1 "Silkscreen", monospace; color: var(--dim); white-space: nowrap; }
+#help span { display: inline-flex; align-items: center; gap: 4px; }
+.hb { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--ink); color: #000; font: 700 9px/1 "Silkscreen", monospace; font-style: normal; }
+.hb-start, .hb-select { width: 18px; height: 8px; border-radius: 2px; }
+.hb-dpad { background: none; border: 2px solid var(--ink); border-radius: 2px; width: 13px; height: 13px; transform: rotate(45deg) scale(.8); }
+/* game list: head image at (44, 84), textlist 0.44 × 0.64 at (0.043, 0.215), Archivo 0.0234, lineSpacing 1.9 */
+#head { left: 44px; top: 84px; }
+#rows { position: absolute; left: 44px; top: 165px; width: 451px; height: 492px; overflow: hidden; }
+.tl { height: 32.5px; line-height: 32.5px; padding: 0 22px; font: 400 18px "Archivo", sans-serif; color: #a9a9a5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl.on { color: #fff; background: linear-gradient(transparent 5px, #ffffff12 5px, #ffffff12 28px, transparent 28px); }
+#cover { left: 546px; top: 96px; }
+#md-name { position: absolute; left: 546px; top: 380px; width: 440px; height: 38px; font: 400 24px/38px "Archivo", sans-serif; color: var(--ink); white-space: nowrap; overflow: hidden; }
+.md-lbl { position: absolute; top: 430px; font: 400 12px/20px "Silkscreen", monospace; color: var(--dim); }
+.md-val { position: absolute; top: 452px; font: 400 16px/23px "Silkscreen", monospace; color: var(--ink); }
+#md-desc { position: absolute; left: 546px; top: 495px; width: 440px; height: 126px; overflow: hidden; font: 400 15px/21px "Archivo", sans-serif; color: #8f8f8b; white-space: pre-line; }
+/* ES's menu with the theme's 9-patch: panel 768 wide from y 116, Silkscreen title, Archivo rows */
+#dim { position: absolute; inset: 0; background: #000a; }
+#menu { position: absolute; left: 128px; top: 116px; width: 768px; background: #0b0b0bfa; border: 1px solid #ffffff22; }
+.mt { height: 61px; display: grid; place-items: center; font: 400 22px "Silkscreen", monospace; letter-spacing: .08em; border-bottom: 1px solid #1d1d1c; }
+.mg { padding: 4px 10px 2px; font: 400 12px/18px "Silkscreen", monospace; color: var(--dim); border-bottom: 1px solid #1d1d1c; }
+.mi { height: 25.6px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 10px; font: 500 18px "Archivo", sans-serif; color: #a9a9a5; border-bottom: 1px solid #1d1d1c; }
+.mi.on { background: #ffffff1a; color: #fff; }
+.mv { display: inline-flex; gap: 10px; align-items: center; }
+.mv i { font-style: normal; font-size: 14px; color: #a9a9a5; }
+.ma { font: 400 22px "Archivo", sans-serif; }
+.msw { width: 36px; height: 18px; border-radius: 9px; background: #d8d8d4; position: relative; }
+.msw::after { content: ""; position: absolute; right: 3px; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: #111; }
+.mf { padding: 18px 0 16px; text-align: center; font: 400 12px "Silkscreen", monospace; color: var(--dim); }
+.mb { padding: 12px 0; display: flex; justify-content: center; }
+.mb span { font: 500 18px "Archivo", sans-serif; padding: 2px 16px; border: 1px solid #ffffff5a; }
+.mb span.on { background: #242424; border-color: var(--acc, #fff); }
+/* battery icon states, full screen */
+#fx-vig, #fx-charge { position: absolute; left: 0; top: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { #fig.light { animation: none; } }
+@media (max-width: 640px) { .bezel { padding: 8px; border-radius: 12px; } }
+</style>
+
+<header class="top">
+  <div>
+    <h1>escape/UI</h1>
+    <p>Макет 1:1 с приставкой: картинки темы рисуются тем же кодом, что генератор на Brick (с тем же генератором случайных чисел), а полоса коллекций, подсказки, списки и меню — по размерам из theme.xml. Данные — ваши коллекции и игры с приставки. Клавиши: стрелки, Enter = A, Backspace = B, M = START. Charging + 15 с без кнопок = экран зарядки. В списке APPS: EscapeUI открывает приложение настроек.</p>
+  </div>
+  <div class="controls">
+    <div class="group" role="group" aria-label="Accent colour"><span>Accent</span><span id="swatches" class="group"></span></div>
+    <div class="group" role="group" aria-label="Screen">
+      <button class="tab" data-go="boot">Boot</button><button class="tab" data-go="sys">Systems</button>
+      <button class="tab" data-go="list">Games</button><button class="tab" data-go="menu">Menu</button><button class="tab" data-go="app">escape-UI</button>
+    </div>
+    <div class="group" role="group" aria-label="Figure motion"><span>Motion</span>
+      <button class="tab" data-mo="video">video</button><button class="tab" data-mo="light">light</button><button class="tab" data-mo="still">still</button></div>
+    <div class="group" role="group" aria-label="Battery simulator"><span>Battery</span>
+      <input type="range" id="batt-in" min="0" max="100" value="87" aria-label="Battery level" style="width:110px">
+      <span id="batt-val">87%</span><button class="tab" id="chg" aria-pressed="false">Charging</button></div>
+  </div>
+</header>
+
+<div class="frame" id="frame">
+  <div class="bezel"><div class="viewport" id="viewport"><div class="stage" id="stage">
+    <section class="scr" id="s-boot" hidden><canvas id="boot" class="abs" width="1024" height="768"></canvas></section>
+    <section class="scr" id="s-sys">
+      <canvas id="base" class="abs" width="1024" height="768"></canvas>
+      <canvas id="fig" class="abs" width="560" height="470"></canvas>
+      <canvas id="loop" class="abs" width="560" height="470"></canvas>
+      <canvas id="over" class="abs" width="1024" height="768"></canvas>
+      <div id="strip"></div>
+    </section>
+    <section class="scr" id="s-list" hidden>
+      <canvas id="base2" class="abs" width="1024" height="768"></canvas>
+      <canvas id="head" class="abs" width="460" height="64"></canvas>
+      <div id="rows"></div>
+      <canvas id="cover" class="abs" width="440" height="264"></canvas>
+      <div id="md-name"></div>
+      <div class="md-lbl" style="left:546px">PLAYED ×</div><div class="md-lbl" style="left:688px">TIME</div><div class="md-lbl" style="left:850px">LAST</div>
+      <div class="md-val" id="md-plays" style="left:546px"></div><div class="md-val" id="md-time" style="left:688px"></div><div class="md-val" id="md-last" style="left:850px"></div>
+      <div id="md-desc"></div>
+    </section>
+    <section class="scr" id="s-menu" hidden><div id="dim"></div><div id="menu" role="menu"></div></section>
+    <section class="scr" id="s-app" hidden><canvas id="app" class="abs" width="1024" height="768"></canvas></section>
+    <section class="scr" id="s-charge" hidden><canvas id="chg-screen" class="abs" width="1024" height="768"></canvas></section>
+    <div id="status"><span id="clock">12:00</span><span id="batt">87%</span></div>
+    <div id="help"></div>
+    <canvas id="fx-vig" width="1024" height="768"></canvas>
+    <canvas id="fx-charge" width="1024" height="768"></canvas>
+  </div></div></div>
+</div>
+<div class="pad">
+  <div class="keys"><button data-k="left" aria-label="Left">◀</button><button data-k="up" aria-label="Up">▲</button><button data-k="down" aria-label="Down">▼</button><button data-k="right" aria-label="Right">▶</button></div>
+  <div class="keys"><button data-k="b" aria-label="B">B</button><button data-k="a" aria-label="A">A</button><button data-k="start" aria-label="Start">START</button></div>
+</div>
+<!-- ca.glsl: red sampled +amount, blue −amount (0.0016 of the element: ~1 px on the figure, ~1.6 px full screen) -->
+<svg width="0" height="0" style="position:absolute"><filter id="ca" color-interpolation-filters="sRGB">
+  <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/><feOffset in="r" dx="-1.6" result="r2"/>
+  <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="g"/>
+  <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/><feOffset in="b" dx="1.6" result="b2"/>
+  <feBlend in="r2" in2="g" mode="screen" result="rg"/><feBlend in="rg" in2="b2" mode="screen"/>
+</filter></svg>
+<script>
+/*JS*/
+</script>

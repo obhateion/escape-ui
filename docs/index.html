@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>escape/UI</title>
+<meta name="description" content="escape/UI — an EmulationStation theme for the TrimUI Brick on Knulli: black screen, hairlines, dot-matrix type, stickers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;600;800&family=Doto:wght@900&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #000; --ink: #f2f2ee; --dim: #8a8a86; --line: #2a2a28; --acc: #d8ff3c; }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 Archivo, system-ui, sans-serif; }
+  a { color: var(--ink); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+  .tag { font: 12px Silkscreen, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 22px 0; border-bottom: 1px solid var(--line); }
+  header .logo { font: 900 22px Doto, monospace; letter-spacing: .06em; text-decoration: none; }
+  header nav a { font: 12px Silkscreen, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); text-decoration: none; margin-left: 18px; }
+  header nav a:hover { color: var(--ink); }
+  .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; padding: 64px 0 40px; }
+  .hero h1 { font: 900 clamp(56px, 10vw, 112px)/.95 Doto, monospace; letter-spacing: .03em; margin: 14px 0 18px; }
+  .hero h1 i { font-style: normal; color: var(--acc); }
+  .hero p { font-size: 18px; color: #cfcfca; max-width: 34em; margin: 0 0 26px; }
+  .hero img { width: 100%; max-width: 420px; justify-self: center; }
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn { display: inline-block; padding: 12px 18px; border: 1px solid var(--ink); border-radius: 999px; text-decoration: none;
+         font: 13px Silkscreen, monospace; letter-spacing: .08em; text-transform: uppercase; }
+  .btn.fill { background: var(--ink); color: #000; }
+  .btn:hover { background: var(--acc); color: #000; border-color: var(--acc); }
+  .shot { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #000; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  section { padding: 48px 0; border-top: 1px solid var(--line); }
+  h2 { font: 900 40px/1 Doto, monospace; letter-spacing: .03em; margin: 8px 0 22px; }
+  .feat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px 28px; margin-top: 8px; }
+  .feat h3 { font: 13px Silkscreen, monospace; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 6px; }
+  .feat h3::before { content: "✦ "; color: var(--acc); }
+  .feat p { margin: 0; color: #bdbdb8; font-size: 15px; }
+  .cap { font: 11px Silkscreen, monospace; letter-spacing: .08em; color: var(--dim); text-transform: uppercase; margin-top: 8px; }
+  ol.steps { padding-left: 22px; color: #d6d6d1; } ol.steps li { margin: 0 0 10px; }
+  code { font: 13px ui-monospace, Menlo, Consolas, monospace; background: #151514; border: 1px solid var(--line); padding: 1px 6px; border-radius: 6px; }
+  footer { padding: 34px 0 60px; border-top: 1px solid var(--line); color: var(--dim); font-size: 13px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .hazard { height: 10px; background: repeating-linear-gradient(-45deg, var(--ink) 0 8px, transparent 8px 16px); opacity: .9; }
+  @media (max-width: 760px) {
+    .hero { grid-template-columns: 1fr; padding-top: 36px; } .hero img { max-width: 260px; }
+    .grid2, .grid3, .feat { grid-template-columns: 1fr; }
+    header nav a { margin-left: 10px; }
+    h2 { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="logo" href="./">escape/UI</a>
+    <nav><a href="demo.html">Demo</a><a href="https://github.com/obhateion/escape-ui/releases/latest">Download</a><a href="https://github.com/obhateion/escape-ui">GitHub</a></nav>
+  </header>
+
+  <div class="hero">
+    <div>
+      <div class="tag">EmulationStation theme · TrimUI Brick · Knulli</div>
+      <h1>escape<i>/</i>UI</h1>
+      <p>Black screen, hairlines, dot-matrix type and stickers — Nothing × Apple × Y2K × brutalism.
+         Every collection gets a turning wire figure, every game its own sticker sheet. All drawn for your games, ahead of time.</p>
+      <div class="btns">
+        <a class="btn fill" href="demo.html">▶ Try it in the browser</a>
+        <a class="btn" href="https://github.com/obhateion/escape-ui/releases/latest">Download</a>
+        <a class="btn" href="escape-ui-guide-en.pdf">Guide · EN</a>
+        <a class="btn" href="escape-ui-guide-ru.pdf">Инструкция · RU</a>
+      </div>
+    </div>
+    <img src="img/figure.gif" alt="a wire globe turning, entering through a glitch">
+  </div>
+
+  <div class="grid2">
+    <div><div class="shot"><img src="img/home-apps.png" alt="the home screen: the APPS collection with a wire cube and stickers"></div><div class="cap">Home screen · on the Brick</div></div>
+    <div><div class="shot"><img src="img/list.png" alt="a game list with a sticker sheet"></div><div class="cap">Game list · sticker sheet</div></div>
+  </div>
+</div>
+
+<section><div class="wrap">
+  <div class="tag">What's inside</div>
+  <h2>features</h2>
+  <div class="feat">
+    <div><h3>18 figures</h3><p>Wire globe, cube, torus, tunnel, radar, helix… one per collection, turning as a video loop with a glitch entrance — or "light" (a still that breathes), or still.</p></div>
+    <div><h3>Sticker sheets</h3><p>Every game on one of 16 grey patterns, with its picture as a Polaroid or a die-cut logo, plus stickers by the level you pick (0–5).</p></div>
+    <div><h3>10 accents</h3><p>White, red, orange, yellow, acid, green, ice, blue, violet, pink — each drawn ahead, so switching is instant.</p></div>
+    <div><h3>Charging screen</h3><p>On the charger and untouched for 15 s: the boot screen with a turning figure, glitch bursts and the charge. Any button — the figure glitches back in.</p></div>
+    <div><h3>Settings app</h3><p>escape-UI in PORTS: figure per collection, pattern per game, cover picture, boot logo, colours. A file copy when the variant library is drawn.</p></div>
+    <div><h3>Any setup</h3><p>Custom collections, consoles, favourites, last played; names in Cyrillic, Japanese, Korean; names with <code>:</code> or <code>?</code>; unscraped games.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="tag">The charging screen</div>
+  <h2>charge</h2>
+  <div class="grid3">
+    <div><div class="shot"><img src="img/charging.png" alt="charging screen"></div><div class="cap">15 s on the charger</div></div>
+    <div><div class="shot"><img src="img/charging-glitch.png" alt="a glitch burst"></div><div class="cap">Glitch bursts</div></div>
+    <div><div class="shot"><img src="img/way-back.png" alt="the way back: only the figure glitches"></div><div class="cap">The way back</div></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="tag">Settings</div>
+  <h2>tune it</h2>
+  <div class="grid2">
+    <div><div class="shot"><img src="img/menu.png" alt="theme configuration menu"></div><div class="cap">UI settings · theme configuration</div></div>
+    <div><div class="shot"><img src="img/home-sound.png" alt="the SOUND collection with waves"></div><div class="cap">Detail level 5 · waves</div></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="tag">18 figures × 10 colours</div>
+  <h2>figures</h2>
+  <div class="shot"><img src="img/figures.png" alt="all 18 figures in all 10 accent colours"></div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="tag">Install</div>
+  <h2>install</h2>
+  <ol class="steps">
+    <li>Download <code>escape-ui-theme-vX.Y.zip</code> from <a href="https://github.com/obhateion/escape-ui/releases/latest">Releases</a>.</li>
+    <li>Copy <code>themes</code> and <code>roms</code> from the archive to the root of SHARE (<code>/userdata</code>) — over the network or with the card in a computer.</li>
+    <li>On the Brick: UPDATE GAMELISTS (or reboot), then start <b>EscapeUI</b> from PORTS.</li>
+    <li>Setup screen: <b>A</b> — turn the theme on, <b>X</b> — the same with custom collections on the home screen, <b>B</b> — leave.</li>
+  </ol>
+  <p class="tag">Want it all drawn ahead on a PC (faster, the Brick stays idle)? See the guide or the README.</p>
+</div></section>
+
+<div class="hazard"></div>
+<div class="wrap">
+  <footer><span>escape/UI · MIT · fonts under SIL OFL · not affiliated with TrimUI, Knulli, Batocera or EmulationStation</span><span class="tag">エスケープ</span></footer>
+</div>
+</body>
+</html>
