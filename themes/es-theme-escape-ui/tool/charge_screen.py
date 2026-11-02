@@ -289,6 +289,26 @@ def main():
     k = 0
     clock = pygame.time.Clock()
     last = back
+    fx, fy = W // 2 - FIG // 2, 130
+    fig_rect = pygame.Rect(fx, fy, FIG, FIG)
+    # Between bursts only the figure's square changes, and the loop repeats: each square is composed
+    # once over the backdrop and kept as a surface; a frame is then one 400x400 blit. The full screen
+    # is drawn again only after a burst or when the backdrop changes (battery level, every 30 s).
+    tiles, tiles_back, full_due = {}, None, True
+    last_i = 0
+
+    def composed(i):
+        """The whole frame for loop step i (for a burst and the way out)."""
+        f = back.copy()
+        f[fy:fy + FIG, fx:fx + FIG] = np.maximum(f[fy:fy + FIG, fx:fx + FIG], fig_at(i))
+        return f
+
+    def fig_at(i):
+        if packed:
+            return figure(i)   # PNG-packed loop: decoded when a tile or a burst needs it
+        while i >= len(frames):
+            frames.append(figure(len(frames)))
+        return frames[i]
 
     def show(f):
         scr.blit(pygame.image.frombuffer(np.ascontiguousarray(f).tobytes(), (W, H), "RGB"), (0, 0))
@@ -298,8 +318,9 @@ def main():
         """A button or unplugging: the screen breaks up in a short glitch and ends on black; then ES's
         home screen comes back with its figure glitching in (the videos' entrance), settling on the
         exact frame ES was paused on, so ES carries on from there."""
+        cur_last = last if last is not None else composed(last_i)
         for j in range(12):   # the burst played backwards: it builds up and ends on black
-            show(glitch(last, max(0, 6 - j), 9, rnd) if j < 9 else np.zeros_like(last))   # medium to full, then black
+            show(glitch(cur_last, max(0, 6 - j), 9, rnd) if j < 9 else np.zeros_like(cur_last))   # medium to full, then black
         back_job.join(5)
         if back_frames and not back_job.is_alive():
             for f in back_frames:   # forward burst on ES's figure only: dead frames, blocks, tears, fading out
@@ -323,24 +344,34 @@ def main():
         if time.time() - level_at > 30:
             level = battery(); back = backdrop(accent, level); level_at = time.time()
         i = k % n
-        if packed:
-            cur = figure(i)   # PNG-packed loop: decode as we go (a few ms), keeps memory small
-        else:
-            if i >= len(frames):
-                frames.append(figure(i))
-            cur = frames[i]
-        frame = back.copy()
-        fx, fy = W // 2 - FIG // 2, 130
-        frame[fy:fy + FIG, fx:fx + FIG] = np.maximum(frame[fy:fy + FIG, fx:fx + FIG], cur)
+        last_i = i
         if burst < 0 and time.time() >= next_burst:
             burst, blen = 0, 6 + rnd.randrange(8)
-        if burst >= 0:
-            frame = glitch(frame, burst, blen, rnd); burst += 1
+        if burst >= 0:   # a glitch burst: the whole frame, as before
+            frame = glitch(composed(i), burst, blen, rnd); burst += 1
             if burst >= blen:
                 burst, next_burst = -1, time.time() + 2.0 + rnd.random() * 4
-        last = frame
-        scr.blit(pygame.image.frombuffer(np.ascontiguousarray(frame).tobytes(), (W, H), "RGB"), (0, 0))
-        pygame.display.flip(); pygame.event.pump()
+            last = frame
+            scr.blit(pygame.image.frombuffer(np.ascontiguousarray(frame).tobytes(), (W, H), "RGB"), (0, 0))
+            pygame.display.flip()
+            full_due = True
+        else:
+            if tiles_back is not back:   # new backdrop: its tiles and the full screen are drawn again
+                tiles, tiles_back, full_due = {}, back, True
+            if full_due:
+                scr.blit(pygame.image.frombuffer(np.ascontiguousarray(back).tobytes(), (W, H), "RGB"), (0, 0))
+            t = tiles.get(i)
+            if t is None:
+                sq = np.maximum(back[fy:fy + FIG, fx:fx + FIG], fig_at(i))
+                t = tiles[i] = pygame.image.frombuffer(np.ascontiguousarray(sq).tobytes(), (FIG, FIG), "RGB").copy()
+            scr.blit(t, fig_rect.topleft)
+            if full_due:
+                pygame.display.flip(); full_due = False
+            else:
+                pygame.display.update(fig_rect)
+            last = None   # composed on demand (the way out) from last_i
+        if any(e.type == pygame.QUIT for e in pygame.event.get()):   # SDL turns SIGTERM/SIGINT into a
+            leave()                                                  # QUIT: leave as a button would
         k += 1
         clock.tick(FPS)
 

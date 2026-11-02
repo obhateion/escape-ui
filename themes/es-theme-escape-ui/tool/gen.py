@@ -166,15 +166,27 @@ def pattern_for(cfg, game):
 
 # ---------- what is on the card ----------
 
+_ES_SETTINGS = {"key": None, "vals": {}, "at": 0.0}
+
+
 def es_setting(name):
+    """One of ES's settings. The file is parsed again only when its time or size changed: charged.py
+    asks every couple of seconds, and every read of /userdata goes through the exFAT FUSE daemon."""
+    p = os.path.join(ES_DIR, "es_settings.cfg")
     try:
-        root = ET.parse(os.path.join(ES_DIR, "es_settings.cfg")).getroot()
-        for e in root:
-            if e.get("name") == name:
-                return e.get("value")
-    except Exception:
-        pass
-    return None
+        st = os.stat(p)
+        key = (st.st_mtime_ns, st.st_size)
+        now = time.time()   # exFAT keeps coarse times: also look again after 30 s whatever they say
+        if key != _ES_SETTINGS["key"] or now - _ES_SETTINGS["at"] > 30:
+            vals = {}
+            for e in ET.parse(p).getroot():
+                if e.get("name") is not None and e.get("name") not in vals:
+                    vals[e.get("name")] = e.get("value")
+            _ES_SETTINGS.update(key=key, vals=vals, at=now)
+        return _ES_SETTINGS["vals"].get(name)
+    except Exception:   # missing, or caught half-written: read it again next time
+        _ES_SETTINGS["key"] = None
+        return None
 
 
 def grouped():
