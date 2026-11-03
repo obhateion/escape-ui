@@ -1382,7 +1382,8 @@ if __name__ == "__main__":
     if "--event" in sys.argv:
         # from an ES event script: quietly, once at a time, the current colour only. It never
         # pokes ES (a reload while ES applied a setting hung it); new art shows on the next ES start.
-        if not lock(wait=False):
+        held = lock(wait=False)   # kept in a name: a lock file nobody holds is closed and lets go at once
+        if not held:
             sys.exit(0)
         os.nice(19)
         run()
