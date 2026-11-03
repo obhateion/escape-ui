@@ -218,7 +218,7 @@ def prepare():
     import json
     import multiprocessing
     import shutil
-    if library()[0]:
+    if library()[0] or not gen.drawing():   # drawn ahead, or this Brick draws nothing itself
         return
     accent = art.ACCENT_RGB.get(gen.current_accent(), art.INK)
     fig = random.choice(shapes.LIST)

@@ -287,7 +287,9 @@ def main():
                     log.write(time.strftime("[escape-ui] %H:%M charging and idle: drawing the other colours\n")); log.flush()
                     job = subprocess.Popen(["nice", "-n", "19", sys.executable, os.path.join(HERE, "gen.py"), "--all-colours", "--jobs=2"],
                                            stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-                _missing["sig"] = None   # look again once this run is over
+                # one run per change: what it could not take from the library (a Brick that draws
+                # nothing) is asked for again only when something changes, or after 30 min
+                _missing.update(sig=library_sig(), at=now, val=False)
 
 
 if __name__ == "__main__":

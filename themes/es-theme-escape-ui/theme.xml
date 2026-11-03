@@ -243,22 +243,17 @@ fonts:   Doto, Silkscreen, Archivo, Martian Mono (SIL Open Font License, see ./f
     <image name="escape-cover-blank" extra="true">
       <pos>0.5332 0.125</pos><size>0.4297 0.34375</size><path>./gen/${acc}/cover-blank.png</path><zIndex>11</zIndex>
     </image>
-    <!-- per game: by name; a name that can't be a file name ("Zelda: ...") is drawn per rom file instead -->
+    <!-- per game, per rom file ({game:path} is the absolute rom path, always a valid file name). A path with
+         {game:...} is filled in per game later, and ES keeps the LAST such <path> whether that file exists
+         or not (unlike ${...} paths, checked when the theme loads): one path per level, no by-name one -->
     <image name="escape-cover" extra="true">
       <pos>0.5332 0.125</pos><size>0.4297 0.34375</size><zIndex>12</zIndex>
-      <path>./gen/${acc}/covers/3/{game:name}.png</path>
       <path>./gen/${acc}/covers/3{game:path}.png</path>
-      <path ifSubset="escape-covers:0">./gen/${acc}/covers/0/{game:name}.png</path>
       <path ifSubset="escape-covers:0">./gen/${acc}/covers/0{game:path}.png</path>
-      <path ifSubset="escape-covers:1">./gen/${acc}/covers/1/{game:name}.png</path>
       <path ifSubset="escape-covers:1">./gen/${acc}/covers/1{game:path}.png</path>
-      <path ifSubset="escape-covers:2">./gen/${acc}/covers/2/{game:name}.png</path>
       <path ifSubset="escape-covers:2">./gen/${acc}/covers/2{game:path}.png</path>
-      <path ifSubset="escape-covers:3">./gen/${acc}/covers/3/{game:name}.png</path>
       <path ifSubset="escape-covers:3">./gen/${acc}/covers/3{game:path}.png</path>
-      <path ifSubset="escape-covers:4">./gen/${acc}/covers/4/{game:name}.png</path>
       <path ifSubset="escape-covers:4">./gen/${acc}/covers/4{game:path}.png</path>
-      <path ifSubset="escape-covers:5">./gen/${acc}/covers/5/{game:name}.png</path>
       <path ifSubset="escape-covers:5">./gen/${acc}/covers/5{game:path}.png</path>
     </image>
     <text name="md_name">

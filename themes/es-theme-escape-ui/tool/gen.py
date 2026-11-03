@@ -46,6 +46,7 @@ DEFAULTS = {
     "figures": {},          # collection name -> figure
     "patterns": {},         # game name -> pattern
     "covers": {},           # game name -> auto | original | custom | logo | none
+    "draw_on_device": True,  # False: this Brick never draws, all its art comes ready from a PC (pc/sync.sh)
 }
 DISPLAY = {"custom-collections": "collections"}   # theme name -> what the card says
 DEFAULT_FIG = {"ALL": "globe", "APPS": "cube", "GAMES": "checker", "SOUND": "waves", "custom-collections": "orbits", "ports": "orbits",
@@ -440,10 +441,14 @@ def game_paths(g):
 
 
 def cover_files(G, L, g):
-    """Where game g's sheet at level L goes: by name, or per rom file when the name can't be a file."""
-    if by_name(g):
-        return [os.path.join(G, "covers", str(L), g + ".png")]
-    return [os.path.join(G, "covers", str(L)) + p + ".png" for p in game_paths(g) if p.startswith("/")]
+    """Where game g's sheet at level L goes: per rom file (covers/L/<absolute rom path>.png), which the
+    theme finds with {game:path}. ES keeps the LAST {game:...} <path> of an image whether that file
+    exists or not, so the theme can't fall back from a by-name file to a per-file one: every game goes
+    per rom file. Only a game with no rom path known keeps a by-name file."""
+    per_file = [os.path.join(G, "covers", str(L)) + p + ".png" for p in sorted(game_paths(g)) if p.startswith("/")]
+    if per_file:
+        return per_file
+    return [os.path.join(G, "covers", str(L), safe_name(g) + ".png")]
 
 
 # ---------- drawing ----------
@@ -827,6 +832,45 @@ CHG_FPS, CHG_SIZE = 24, 400   # the charging screen's figure (tool/charge_screen
 # drawn on a PC and in background runs; the app's own (foreground) run leaves them to the background,
 # so the first setup on the Brick stays a few minutes
 DRAW_CHARGE = bool(PC) or any(a in sys.argv for a in ("--event", "--all-colours", "--worker", "--library"))
+# With "draw_on_device": false the Brick draws nothing itself: all art is drawn on a PC (pc/sync.sh:
+# the Brick's snapshot -> library -> upload) and the Brick only puts the right drawn files in place.
+# What the library lacks is listed in gen/<colour>/missing.txt and the log ("draw on the PC") and the
+# old picture stays. --draw (or ESCAPE_DRAW=1) lets one run on the Brick draw anyway.
+DRAW_FORCED = bool(PC) or "--draw" in sys.argv or os.environ.get("ESCAPE_DRAW") == "1"
+_DRAW = {}
+
+
+def drawing():
+    """May this run draw art itself? Always on a PC; on the Brick unless config.json says
+    "draw_on_device": false (then everything comes ready from the PC and the library)."""
+    if DRAW_FORCED:
+        return True
+    if "v" not in _DRAW:
+        _DRAW["v"] = bool(load_cfg().get("draw_on_device", True))
+    return _DRAW["v"]
+MISSING = {"G": None, "keys": []}   # what the colour being done could not take from the library
+
+
+def cannot_draw(key):
+    """Not drawing(): note the piece of art as missing (to draw on the PC) instead of drawing it."""
+    if drawing():
+        return False
+    if key not in MISSING["keys"]:
+        MISSING["keys"].append(key)
+        log("missing in the library, draw on the PC:", key)
+    return True
+
+
+def write_missing(G):
+    """gen/<colour>/missing.txt: what the Brick could not take from the library (none: no file)."""
+    p = os.path.join(G, "missing.txt")
+    try:
+        if MISSING["keys"]:
+            open(p + ".tmp", "w", encoding="utf-8").write(chr(10).join(MISSING["keys"]) + chr(10)); os.replace(p + ".tmp", p)
+        elif os.path.exists(p):
+            os.remove(p)
+    except OSError:
+        pass
 
 
 def charge_plan(fig):
@@ -1010,6 +1054,8 @@ def plan_accent(slug, cfg, colls, names, all_games, videos=True, force=False):
     for g in all_games:
         if not set(want_lv) <= set(cover_levels_drawn(stamps, g)):
             todo.add("cov:" + g)
+        elif not all(os.path.exists(f) for L in want_lv for f in cover_files(G, L, g)):
+            todo.add("cov:" + g)   # drawn, but not where the theme looks now (or a rom file was added)
     if not os.path.exists(os.path.join(G, "base.png")):
         todo.add("common")
     for c in names:
@@ -1156,6 +1202,15 @@ def _parallel(busy, jobs, force, videos, cfg):
 
 
 def _draw_accent(cfg, colls, names, all_games, G, acc, stamps, want, todo):
+    MISSING.update(G=G, keys=[])
+    try:
+        _draw_accent_in(cfg, colls, names, all_games, G, acc, stamps, want, todo)
+    finally:
+        if not drawing():
+            write_missing(G)
+
+
+def _draw_accent_in(cfg, colls, names, all_games, G, acc, stamps, want, todo):
     stamps_path = os.path.join(G, "stamps.json")
     os.makedirs(G, exist_ok=True)
 
@@ -1163,7 +1218,7 @@ def _draw_accent(cfg, colls, names, all_games, G, acc, stamps, want, todo):
         stamps[key] = want[key]
         json.dump(stamps, open(stamps_path + ".tmp", "w")); os.replace(stamps_path + ".tmp", stamps_path)
 
-    if "common" in todo:
+    if "common" in todo and not cannot_draw("common"):
         log("base, menu, battery effects")
         write(os.path.join(G, "base.png"), sys_base())
         blank = art.pattern("carbon", 880, 528).resize((440, 264), Image.LANCZOS); db = ImageDraw.Draw(blank)
@@ -1181,21 +1236,26 @@ def _draw_accent(cfg, colls, names, all_games, G, acc, stamps, want, todo):
         tick(9)
         done("common")
     if "boot" in todo:
-        if not lib_take(G, "boot-" + want["boot"], [(n, os.path.join(G, n)) for n in ("boot.png", "menu-icon.png")]):
-            draw_boot(G, cfg["boot_logo"], acc)
-        tick(3); done("boot")
+        if lib_take(G, "boot-" + want["boot"], [(n, os.path.join(G, n)) for n in ("boot.png", "menu-icon.png")]):
+            done("boot")
+        elif not cannot_draw("boot-" + want["boot"]):
+            draw_boot(G, cfg["boot_logo"], acc); done("boot")
+        tick(3)
     for i, c in enumerate(names):
         fig = figure_for(cfg, c); games = colls[c]
         d = os.path.join(G, "sys", safe_name(c))
         if "sys:" + c in todo:
             log("collection", c, fig)
-            if not lib_take(G, "sys-" + want["sys:" + c], [(n, os.path.join(d, n)) for n in SYS_FILES]):
-                draw_sys(d, c, games, i, len(names), fig, acc)
+            if lib_take(G, "sys-" + want["sys:" + c], [(n, os.path.join(d, n)) for n in SYS_FILES]):
+                done("sys:" + c)
+            elif not cannot_draw("sys-" + want["sys:" + c] + " (" + c + ")"):
+                draw_sys(d, c, games, i, len(names), fig, acc); done("sys:" + c)
             tick(8)
-            done("sys:" + c)
         if "loop:" + c in todo:
             log("animation", c, fig)
-            if lib_take(G, "loop-" + want["loop:" + c], [("fig.mp4", os.path.join(d, "fig.mp4"))]) or figure_video(fig, acc, os.path.join(d, "fig.mp4")):
+            if lib_take(G, "loop-" + want["loop:" + c], [("fig.mp4", os.path.join(d, "fig.mp4"))]):
+                done("loop:" + c)
+            elif not cannot_draw("loop-" + want["loop:" + c] + " (" + c + ")") and figure_video(fig, acc, os.path.join(d, "fig.mp4")):
                 done("loop:" + c)
     for fig in shapes.LIST:   # the charging screen's loops
         if "chg:" + fig in todo:
@@ -1208,6 +1268,8 @@ def _draw_accent(cfg, colls, names, all_games, G, acc, stamps, want, todo):
                     continue
             except Exception:
                 pass
+            if cannot_draw("chg:" + fig):
+                continue
             log("charging loop", fig)
             for k in range(n):
                 p = os.path.join(d, "%03d.png" % k)
@@ -1230,14 +1292,19 @@ def _draw_accent(cfg, colls, names, all_games, G, acc, stamps, want, todo):
                     if os.path.exists(f):
                         os.remove(f)
         key = "cov-%s-%d" % (want["cov:" + g], order[g])
+        got = set()
         for L in levels:
             files = cover_files(G, L, g)
             if files and lib_take(G, key, [("%d.png" % L, f) for f in files]):
+                got.add(L); tick(6 / len(levels)); continue
+            if files and cannot_draw(key + " (" + g + ")"):
                 tick(6 / len(levels)); continue
             im = cover(g, L, acc, cfg, order[g]) if files else None
             for f in files:
                 write(f, im, optimize=False)
-            tick(6 / len(levels))
+            got.add(L); tick(6 / len(levels))
+        if got != set(levels):   # some level could not be taken from the library: keep it to do
+            continue
         stamps["covlv:" + g] = sorted(drawn | set(levels))
         done("cov:" + g)
 
